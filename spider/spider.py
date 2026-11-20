@@ -15,10 +15,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import random
 import re
 import sys
 import tempfile
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -36,7 +40,9 @@ TARGET_URL = "https://jzsc.mohurd.gov.cn/data/company"
 DEFAULT_OUTPUT = Path(__file__).resolve().parent / "mohurd_shandong_level1.json"
 DEFAULT_STATE = Path(__file__).resolve().parent / "mohurd_shandong_level1.state.json"
 DEFAULT_PROFILE = Path(__file__).resolve().parents[1] / "playwright_profile"
-SETTLE_SECONDS = 3.0
+BARK_URL_FILE = Path(__file__).resolve().parents[1] / "bark.url"
+WAIT_MIN_SECONDS = 0.5
+WAIT_MAX_SECONDS = 0.8
 QUALIFICATION_NAME = "建筑工程施工总承包一级"
 REGION_NAME = "山东"
 
@@ -194,21 +200,55 @@ def captcha_present(page: Page) -> bool:
         return False
 
 
+def pause(page: Page | None = None) -> float:
+    """Short pause in the 0.5–0.8s range. Does not interact with verification."""
+    seconds = random.uniform(WAIT_MIN_SECONDS, WAIT_MAX_SECONDS)
+    if page is None:
+        time.sleep(seconds)
+    else:
+        page.wait_for_timeout(int(seconds * 1000))
+    return seconds
+
+
+def bark_endpoint() -> str | None:
+    configured = os.environ.get("BARK_URL", "").strip()
+    if not configured and BARK_URL_FILE.exists():
+        configured = BARK_URL_FILE.read_text(encoding="utf-8").strip()
+    if not configured:
+        return None
+    parts = urllib.parse.urlsplit(configured)
+    path = urllib.parse.quote(urllib.parse.unquote(parts.path), safe="/")
+    return urllib.parse.urlunsplit((parts.scheme, parts.netloc, path, parts.query, parts.fragment))
+
+
+def notify_captcha() -> None:
+    endpoint = bark_endpoint()
+    if not endpoint:
+        print("[bark] 未配置 Bark 地址，跳过通知。")
+        return
+    try:
+        with urllib.request.urlopen(endpoint, timeout=10) as response:
+            print(f"[bark] 已发送验证码提醒，状态 {response.status}。")
+    except urllib.error.URLError as exc:
+        print(f"[bark] 发送失败: {exc}")
+
+
 def require_human_captcha_resolution(page: Page) -> None:
     if not captcha_present(page):
         return
     print("\n[verification] 验证已过期或安全验证已出现。")
     print("请在可见浏览器中人工完成验证。脚本不会点击验证码，完成后会自动继续。")
+    notify_captcha()
     while captcha_present(page):
-        time.sleep(2)
+        pause()
     print("[verification] 验证界面已关闭，继续。")
-    page.wait_for_timeout(int(SETTLE_SECONDS * 1000))
+    pause(page)
 
 
 def settle(page: Page, reason: str) -> None:
     """Wait out the detail/tab loading window before reading text."""
-    print(f"[wait] {SETTLE_SECONDS:.0f}s so {reason} can finish rendering.")
-    page.wait_for_timeout(int(SETTLE_SECONDS * 1000))
+    seconds = pause(page)
+    print(f"[wait] {seconds:.1f}s so {reason} can finish rendering.")
     require_human_captcha_resolution(page)
     deadline = time.monotonic() + 20
     while time.monotonic() < deadline:
@@ -226,16 +266,13 @@ def settle(page: Page, reason: str) -> None:
             loading = False
         if not loading:
             return
-        time.sleep(0.4)
+        pause()
 
 
 class RateLimiter:
-    def __init__(self, minimum_seconds: float) -> None:
-        self.minimum_seconds = minimum_seconds
-
     def wait(self, reason: str) -> None:
-        print(f"[rate-limit] Waiting {self.minimum_seconds:.1f}s before {reason}.")
-        time.sleep(self.minimum_seconds)
+        seconds = pause()
+        print(f"[rate-limit] Waiting {seconds:.1f}s before {reason}.")
 
 
 def active_pane_id(page: Page) -> str:
@@ -345,7 +382,7 @@ def attach_performance_details(page: Page, rows: list[dict[str, str]], limiter: 
                 page.keyboard.press("Escape")
         except Exception:
             page.keyboard.press("Escape")
-        page.wait_for_timeout(400)
+        pause(page)
         detailed.append(item)
     return detailed
 
@@ -367,7 +404,7 @@ def apply_public_filters(page: Page) -> None:
     require_human_captcha_resolution(page)
     print(f"[filter] 资质类别: 建筑业企业；资质名称: {QUALIFICATION_NAME}；企业注册属地: {REGION_NAME}")
     page.locator(".labelInPutRadio span", has_text="建筑业企业").click()
-    page.wait_for_timeout(500)
+    pause(page)
     page.locator(".quality-button .popAlert").click()
     dialog = page.locator(".quality-button-dialog")
     dialog.wait_for(state="visible", timeout=10_000)
@@ -379,10 +416,10 @@ def apply_public_filters(page: Page) -> None:
         if nxt.count() == 0 or nxt.is_disabled():
             break
         nxt.click()
-        page.wait_for_timeout(500)
+        pause(page)
     radio.click()
     dialog.get_by_role("button", name="确 定").click()
-    page.wait_for_timeout(500)
+    pause(page)
     page.locator(".region-select input[placeholder='请选择省级']").click()
     page.locator(".el-select-dropdown:visible .el-select-dropdown__item").filter(
         has_text=re.compile(rf"^{REGION_NAME}$")
@@ -415,7 +452,7 @@ def scrape_detail(page: Page, seed: dict[str, Any], limiter: RateLimiter) -> dic
         info = read_basic_info(page)
         if CREDIT_CODE_RE.match(str(info.get("统一社会信用代码", ""))):
             break
-        page.wait_for_timeout(500)
+        pause(page)
     else:
         raise TimeoutError("企业基础信息 did not finish loading")
     for field in ("企业名称", "统一社会信用代码", "企业法定代表人", "企业注册属地"):
@@ -443,7 +480,7 @@ def open_detail(list_page: Page, row_index: int) -> tuple[Page, bool]:
         detail.wait_for_load_state("commit", timeout=30_000)
         return detail, True
     except PlaywrightTimeoutError:
-        list_page.wait_for_timeout(800)
+        pause(list_page)
         return list_page, False
 
 
@@ -486,7 +523,7 @@ def wait_for_filtered_results(page: Page, ready_flag: Path) -> None:
         if ready_flag.exists():
             ready_flag.unlink()
             settle(page, "the results list")
-        time.sleep(2)
+        pause()
     rows = list_rows(page)
     print(f"[ready] {len(rows)} rows on this page, all registered in {REGION_NAME}.")
 
@@ -578,17 +615,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--profile", type=Path, default=DEFAULT_PROFILE)
     parser.add_argument("--ready-flag", type=Path, default=Path("start_collect.flag"))
     parser.add_argument("--max-pages", type=int, default=30)
-    parser.add_argument("--min-delay", type=float, default=3.0)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
-    if args.min_delay < 3:
-        raise SystemExit("--min-delay must be at least 3 seconds")
     if args.max_pages < 1:
         raise SystemExit("--max-pages must be positive")
-    return collect(args, RateLimiter(args.min_delay))
+    return collect(args, RateLimiter())
 
 
 if __name__ == "__main__":
