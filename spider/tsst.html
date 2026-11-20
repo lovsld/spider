@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dreamina 积分消耗计算器</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            width: 350px;
+        }
+        h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            color: #b0b0b0;
+        }
+        select, input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background-color: #2a2a2a;
+            color: #fff;
+            box-sizing: border-box;
+        }
+        .result {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: #252525;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .result span {
+            font-size: 1.5rem;
+            color: #4dabf7;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Dreamina 积分计算小工具</h2>
+    
+    <div class="form-group">
+        <label for="model">选择模型</label>
+        <select id="model" onchange="calculate()">
+            <option value="seedance-2.5">Dreamina Seedance 2.5</option>
+            <!-- 可以在这里继续添加其他模型 -->
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="resolution">分辨率</label>
+        <select id="resolution" onchange="calculate()">
+            <option value="480p">480P</option>
+            <option value="720p">720P (示例)</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="duration">视频时长 (秒)</label>
+        <input type="number" id="duration" value="30" min="1" max="60" oninput="calculate()">
+    </div>
+
+    <div class="result">
+        预计消耗积分：<br>
+        <span id="points">360</span> 点 ✨
+    </div>
+</div>
+
+<script>
+    function calculate() {
+        const model = document.getElementById('model').value;
+        const resolution = document.getElementById('resolution').value;
+        const duration = parseInt(document.getElementById('duration').value) || 0;
+
+        let baseRate = 12; // 比如根据你图里：30s 对应 360积分，说明每秒约 12 积分 (360 / 30 = 12)
+
+        if (resolution === '720p') {
+            baseRate = 18; // 假设高清分辨率单价更高
+        }
+
+        let totalPoints = duration * baseRate;
+        document.getElementById('points').innerText = totalPoints;
+    }
+
+    // 初始化计算一次
+    calculate();
+</script>
+
+</body>
+</html>
