@@ -17,7 +17,7 @@ playwright install chromium
 ```bash
 python collector/collect.py
 # 资质：建筑工程施工总承包一级；属地：山东（省级）
-# 输出：collector/data/mohurd_shandong_level1.json（356 条已采，断点续跑）
+# 输出：collector/data/mohurd_shandong_level1.json（中断重跑会断点续跑）
 ```
 
 脚本会打开可见的 Chrome。若自动设置筛选失败，请在页面上手动选好条件并点击查询。结果列表里的企业注册属地需要都包含当前组合的属地，才会开始逐条打开详情。

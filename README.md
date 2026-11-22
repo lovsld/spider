@@ -30,4 +30,4 @@ python web/ingest/import_db.py             # 入库
 python web/app.py                          # http://127.0.0.1:8000
 ```
 
-当前正式数据：`collector/data/mohurd_shandong_level1.json`，356 条（建筑工程施工总承包一级 × 山东，2026-11-21 采全，未触 450 上限）。
+仓库不保存采集数据：原 356 条文件是测试数据，已于 2026-11-22 按 Hu 指示删除。采集产物生成在 `collector/data/`（默认组合的文件名仍为 `mohurd_shandong_level1.json`）。

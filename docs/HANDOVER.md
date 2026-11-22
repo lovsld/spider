@@ -44,7 +44,7 @@ shared/     网站与入库共用的 load_config / SshTunnel
 
 ## 数据说明（重要）
 
-- 正式数据：`collector/data/mohurd_shandong_level1.json` — 建筑工程施工总承包一级 × 山东，356 条完整记录（2026-11-21），未触 450 上限，是采全的。与它成对的 `.state.json` 必须一起保留，断点续跑靠它。
+- 仓库不保存正式采集数据。原 356 条 `mohurd_shandong_level1.json` 是测试数据，已于 2026-11-22 按 Hu 指示从仓库删除（本地与 GitHub 均已删）。采集时会在 `collector/data/` 重新生成同名文件，与它成对的 `.state.json` 必须一起保留，断点续跑靠它。
 - `collector/data/legacy/` 两份早期实验文件**不是重复文件**，内容不同，不要合并、不要导入：
   - `mohurd_shandong_construction_level_74.json`：74 条，含重复企业与非山东企业（早期未加属地校验的试验跑）。
   - `mohurd_shandong_construction_level_root3.json`：上面那份的前 3 条子集。

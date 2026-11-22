@@ -73,8 +73,7 @@ class QueryCombo:
         return f"{ascii_part}-{digest}" if ascii_part else digest
 
     def output_name(self) -> str:
-        # The legacy province-level file keeps its historic name so the
-        # 356-record resume state stays valid.
+        # The legacy province-level combo keeps its historic output name.
         if self.level == "province" and self.qualification == KNOWN_QUALIFICATIONS[0]:
             return "mohurd_shandong_level1.json"
         return f"mohurd_{self.slug()}.json"

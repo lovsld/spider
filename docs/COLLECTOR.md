@@ -11,7 +11,7 @@
 2. **OVERFLOW 下钻**：组合跑满 30 页 → state 标记 `"status": "OVERFLOW"`，不算完成；自动改为该市的区县逐个跑。
 3. **区县仍 OVERFLOW**：打印 `[overflow-county]` 留人工决定，不静默截断、不冒充采全。
 
-历史单组合「建筑工程施工总承包一级 × 山东」共 356 条 < 450，所以那一份是采全的，文件保留原名 `collector/data/mohurd_shandong_level1.json` 以便断点续跑。
+历史单组合「建筑工程施工总承包一级 × 山东」曾采到 356 条 < 450（那份是测试数据，已于 2026-11-22 删除）；默认组合的输出文件名保留 `collector/data/mohurd_shandong_level1.json`，采集时自动生成。
 
 ## 枚举数据（必须来自平台本身）
 
