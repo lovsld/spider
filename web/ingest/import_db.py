@@ -29,6 +29,15 @@ if str(ROOT) not in sys.path:
 
 from shared import SshTunnel, load_config  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from schema_spec import (  # noqa: E402
+    SCHEMA_VERSION,
+    compare_schema,
+    load_expected,
+    normalize_actual_type,
+    validate_record,
+)
+
 CHILD_TABLES = (
     "qualification",
     "registered_person",
@@ -397,6 +406,47 @@ def import_record(connection: psycopg.Connection, record: dict[str, Any]) -> str
 def apply_schema(connection: psycopg.Connection) -> None:
     connection.execute(SCHEMA_SQL.read_text(encoding="utf-8"))
     connection.commit()
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT version FROM schema_meta ORDER BY applied_at DESC LIMIT 1")
+        row = cursor.fetchone()
+        if not row or row[0] != SCHEMA_VERSION:
+            cursor.execute("INSERT INTO schema_meta (version) VALUES (%s)", (SCHEMA_VERSION,))
+    connection.commit()
+
+
+def fetch_actual_schema(connection: psycopg.Connection) -> dict:
+    """Actual structure from information_schema / pg_indexes."""
+    tables: dict[str, dict[str, str]] = {}
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT table_name, column_name, data_type, character_maximum_length
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+            """
+        )
+        for table, column, data_type, char_len in cursor.fetchall():
+            tables.setdefault(table, {})[column] = normalize_actual_type(data_type, char_len)
+        cursor.execute("SELECT indexname FROM pg_indexes WHERE schemaname = 'public'")
+        indexes = {row[0] for row in cursor.fetchall()}
+    return {"tables": tables, "indexes": indexes}
+
+
+def run_schema_check(connection: psycopg.Connection) -> list[str]:
+    """Diffs between schema.sql's expectation and the live database."""
+    diffs = compare_schema(load_expected(), fetch_actual_schema(connection))
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT version FROM schema_meta ORDER BY applied_at DESC LIMIT 1")
+            row = cursor.fetchone()
+        if not row:
+            diffs.append("schema_meta has no version row (run --migrate)")
+        elif row[0] != SCHEMA_VERSION:
+            diffs.append(f"schema version mismatch: expected {SCHEMA_VERSION}, got {row[0]}")
+    except Exception:
+        connection.rollback()
+        diffs.append("schema_meta table unreadable (run --migrate)")
+    return diffs
 
 
 def load_records(paths: list[Path]) -> list[dict[str, Any]]:
@@ -417,12 +467,18 @@ def main() -> int:
                         help="One or more collector JSON files (default: the legacy level1 file)")
     parser.add_argument("--data-dir", type=Path, default=None,
                         help="Import every mohurd_*.json directly under this directory (e.g. collector/data)")
+    parser.add_argument("--check-schema", action="store_true",
+                        help="Only verify the live DB structure against schema.sql; exit 0 if exact, 1 with a diff report")
+    parser.add_argument("--migrate", action="store_true",
+                        help="Apply schema.sql and record the schema version, then exit")
     args = parser.parse_args()
     paths = sorted(args.data_dir.glob("mohurd_*.json")) if args.data_dir else list(args.json)
-    if not paths:
-        raise SystemExit("no JSON files to import")
-    records = load_records(paths)
-    counts = {"inserted": 0, "refreshed": 0, "skipped": 0}
+    records: list[dict[str, Any]] = []
+    if not args.check_schema and not args.migrate:
+        if not paths:
+            raise SystemExit("no JSON files to import")
+        records = load_records(paths)
+    counts = {"inserted": 0, "refreshed": 0, "skipped": 0, "invalid": 0}
     config = load_config(args.config)
     tunnel = SshTunnel(config["ssh_host"], int(config["port"])) if config.get("ssh_host") else None
     if tunnel is None:
@@ -433,15 +489,38 @@ def main() -> int:
         connection_context = connect(config, host="127.0.0.1", port=local_port)
     try:
         with connection_context as connection:
-            apply_schema(connection)
-            for index, record in enumerate(records, start=1):
-                if not isinstance(record, dict):
-                    counts["skipped"] += 1
-                    continue
+            if args.migrate:
+                apply_schema(connection)
+                print(f"[schema] migrated, version {SCHEMA_VERSION}")
+                return 0
+            diffs = run_schema_check(connection)
+            if args.check_schema:
+                if diffs:
+                    print("[schema] MISMATCH:")
+                    for diff in diffs:
+                        print(f"  - {diff}")
+                    return 1
+                print(f"[schema] OK (version {SCHEMA_VERSION}, all tables/columns/indexes match schema.sql)")
+                return 0
+            if diffs:
+                print("[schema] Import refused — database structure does not match schema.sql:")
+                for diff in diffs:
+                    print(f"  - {diff}")
+                print("[schema] Run with --migrate to apply schema.sql, or fix the drift manually.")
+                return 1
+            valid_records = []
+            for record in records:
+                problems = validate_record(record)
+                if problems:
+                    counts["invalid"] += 1
+                    print(f"[import] invalid record skipped: {problems} name={record.get('company_name')!r}")
+                else:
+                    valid_records.append(record)
+            for index, record in enumerate(valid_records, start=1):
                 result = import_record(connection, record)
                 counts[result] += 1
-                if index % 25 == 0 or index == len(records):
-                    print(f"[import] {index}/{len(records)} {counts}", flush=True)
+                if index % 25 == 0 or index == len(valid_records):
+                    print(f"[import] {index}/{len(valid_records)} {counts}", flush=True)
     finally:
         if tunnel is not None:
             tunnel.__exit__(None, None, None)

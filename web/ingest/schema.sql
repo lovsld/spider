@@ -191,3 +191,8 @@ CREATE TABLE IF NOT EXISTS change_log (
 
 CREATE UNIQUE INDEX IF NOT EXISTS change_log_one_current
     ON change_log (credit_code, business_key) WHERE is_current;
+
+CREATE TABLE IF NOT EXISTS schema_meta (
+    version       int NOT NULL,
+    applied_at    timestamptz NOT NULL DEFAULT now()
+);
