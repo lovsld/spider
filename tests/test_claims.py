@@ -75,3 +75,36 @@ def test_worker_isolation_paths():
     out2 = collect_mod.apply_worker_isolation(args2)
     assert out2.profile == Path("/tmp/custom-profile")  # explicit wins
     assert out2.ready_flag == Path("/tmp/custom.flag")
+
+
+class _FakePage:
+    def __init__(self, loading_sequence):
+        self._seq = list(loading_sequence)
+        self.waits = 0
+
+    def evaluate(self, _script):
+        return self._seq.pop(0) if self._seq else False
+
+    def wait_for_timeout(self, _ms):
+        self.waits += 1
+
+
+def test_settle_returns_as_soon_as_loading_clears(monkeypatch=None):
+    import time as _time
+
+    collect_mod.require_human_captcha_resolution = lambda page: None
+    old_poll, old_timeout = collect_mod.SETTLE_POLL_SECONDS, collect_mod.SETTLE_TIMEOUT_SECONDS
+    collect_mod.SETTLE_POLL_SECONDS, collect_mod.SETTLE_TIMEOUT_SECONDS = 0.01, 5
+    try:
+        page = _FakePage([False])
+        start = _time.monotonic()
+        collect_mod.settle(page, "unit")
+        assert _time.monotonic() - start < 0.5 and page.waits == 0  # no blind sleep
+        page2 = _FakePage([True, True, False])
+        collect_mod.settle(page2, "unit")
+        assert page2.waits == 2
+        collect_mod.SETTLE_TIMEOUT_SECONDS = 0.05
+        page3 = _FakePage([True] * 100)
+        collect_mod.settle(page3, "unit")  # times out and returns, never hangs
+    finally:
+        collect_mod.SETTLE_POLL_SECONDS, collect_mod.SETTLE_TIMEOUT_SECONDS = old_poll, old_timeout

@@ -401,14 +401,18 @@ def require_human_captcha_resolution(page: Page) -> None:
     pause(page)
 
 
+SETTLE_POLL_SECONDS = 0.2
+SETTLE_TIMEOUT_SECONDS = 20
+
+
 def settle(page: Page, reason: str) -> None:
-    """Wait out the detail/tab loading window before reading text."""
-    seconds = pause(page)
-    print(f"[wait] {seconds:.1f}s so {reason} can finish rendering.")
+    """Wait until the loading mask disappears — condition-based, no
+    blind fixed sleep. Polls every SETTLE_POLL_SECONDS and returns the
+    moment rendering finishes; gives up after SETTLE_TIMEOUT_SECONDS
+    and lets the caller proceed (its reads will surface any problem)."""
     require_human_captcha_resolution(page)
-    deadline = time.monotonic() + 20
-    while time.monotonic() < deadline:
-        require_human_captcha_resolution(page)
+    deadline = time.monotonic() + SETTLE_TIMEOUT_SECONDS
+    while True:
         try:
             loading = page.evaluate(
                 """() => [...document.querySelectorAll('.el-loading-mask')]
@@ -422,7 +426,11 @@ def settle(page: Page, reason: str) -> None:
             loading = False
         if not loading:
             return
-        pause()
+        if time.monotonic() >= deadline:
+            print(f"[wait] {reason} 加载超时（{SETTLE_TIMEOUT_SECONDS}s），按当前页面继续。")
+            return
+        page.wait_for_timeout(int(SETTLE_POLL_SECONDS * 1000))
+        require_human_captcha_resolution(page)
 
 
 class RateLimiter:
@@ -875,19 +883,28 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
                     limiter.wait(f"opening company detail: {name}")
                     listing_url = page.url
                     detail, popup = open_detail(page, index)
+                    record = None
+                    scrape_error: Exception | None = None
+                    cleanup_error: Exception | None = None
                     try:
                         require_human_captcha_resolution(detail)
                         record = scrape_detail(detail, seed, limiter)
                     except Exception as exc:
-                        print(f"[warning] {name}: {exc}")
-                        continue
-                    finally:
+                        scrape_error = exc
+                    try:
                         if popup:
                             detail.close()
                         elif page.url != listing_url:
                             limiter.wait("returning to the results list")
                             page.go_back(wait_until="commit", timeout=30_000)
                             settle(page, "the results list")
+                    except Exception as exc:
+                        cleanup_error = exc
+                    if scrape_error is not None:
+                        print(f"[warning] {name}: {scrape_error}（已跳过，下次运行会重试）")
+                        if cleanup_error is not None:
+                            raise RuntimeError(f"列表页恢复失败，停止本组合: {cleanup_error}") from cleanup_error
+                        continue
                     records = upsert(records, record)
                     if record_is_complete(record):
                         completed.add(company_key(record))
@@ -915,6 +932,10 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
                         f"[saved] {info.get('企业名称')} | {info.get('统一社会信用代码')} | "
                         f"资质 {len(record['企业资质资格']['rows'])}"
                     )
+                    if cleanup_error is not None:
+                        raise RuntimeError(
+                            f"记录已保存，但列表页恢复失败，停止本组合（重跑会续上）: {cleanup_error}"
+                        ) from cleanup_error
                 if page_number == args.max_pages or not next_list_page(page, limiter):
                     break
         except KeyboardInterrupt:
@@ -1288,6 +1309,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--category", default="", help="只遍历一个资质类别：工程设计/工程勘察/建筑业企业资质/工程监理，或代码前缀 A/B/D/E")
     parser.add_argument("--worker", default="", help="worker 标识（分组并行时区分认领/心跳/STOP 文件）；默认主机名-PID")
     parser.add_argument("--refresh", action="store_true", help="增量刷新：先比列表指纹，未变跳过详情；变了只采新企业并记录消失企业")
+    parser.add_argument("--wait-min", type=float, default=WAIT_MIN_SECONDS, help="每步礼貌间隔下限秒（默认 0.5；调小更快但更容易触发平台验证）")
+    parser.add_argument("--wait-max", type=float, default=WAIT_MAX_SECONDS, help="每步礼貌间隔上限秒（默认 0.8）")
     parser.add_argument("--status", action="store_true", help="只打印全部组合的进度总览（扫 state 文件），不采集")
     parser.add_argument("--plan-only", action="store_true", help="只打印遍历计划，不打开浏览器、不采集")
     return parser.parse_args()
@@ -1310,6 +1333,10 @@ def main() -> int:
     args = apply_worker_isolation(parse_args())
     if args.max_pages < 1:
         raise SystemExit("--max-pages must be positive")
+    if args.wait_min < 0 or args.wait_max < args.wait_min:
+        raise SystemExit("--wait-min/--wait-max 不合法（需 0 <= min <= max）")
+    global WAIT_MIN_SECONDS, WAIT_MAX_SECONDS
+    WAIT_MIN_SECONDS, WAIT_MAX_SECONDS = args.wait_min, args.wait_max
     if args.status:
         return print_status(DATA_DIR)
     if args.plan_only:
