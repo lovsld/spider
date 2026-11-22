@@ -15,6 +15,7 @@ from filters import (  # noqa: E402
     load_qualification_entries,
     load_qualifications,
     entry_combos,
+    county_combos,
     region_fullname,
 )
 
@@ -110,3 +111,16 @@ def test_region_fullname_from_platform_dictionary():
     assert region_fullname(QueryCombo(qualification="x", city="济南", county="历下区")) == "山东省-济南市-历下区"
     assert region_fullname(QueryCombo(qualification="x", city="莱芜", county="钢城区")) == "山东省-莱芜市-钢城区"
     assert region_fullname(QueryCombo(qualification="x")) == "山东省"
+
+
+def test_county_combos_are_disjoint_and_complete():
+    entries = load_qualification_entries()
+    counties = load_counties()
+    combos = county_combos(entries, counties)
+    assert len(combos) == 599 * 137
+    pairs = {(c.city, c.county) for c in combos if c.code == "D101A"}
+    assert len(pairs) == 137  # every county exactly once per qualification -> no region overlap
+    d = county_combos(entries, counties, category="D")
+    assert len(d) == 143 * 137
+    one = [c for c in combos if c.code == "D101A" and c.county == "历下区"][0]
+    assert one.city == "济南" and one.level == "county"

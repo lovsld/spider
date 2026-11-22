@@ -190,8 +190,39 @@ def entry_combos(
 
 
 def city_combos(qualifications: list[str], cities: tuple[str, ...] = SHANDONG_CITIES) -> list[QueryCombo]:
-    """Level-1 plan: every qualification x every Shandong city."""
+    """City-level plan: every qualification x every Shandong city."""
     return [QueryCombo(qualification=q, city=c) for q in qualifications for c in cities]
+
+
+def county_combos(
+    entries: list[dict[str, str]],
+    counties_by_city: dict[str, list[str]],
+    category: str = "",
+) -> list[QueryCombo]:
+    """Default traversal plan: every qualification x every county.
+
+    County combos are mutually disjoint by registered region, so a
+    company is collected at most once per qualification — unlike the
+    city-first plan, where an OVERFLOW city's truncated 450 records
+    were scraped and then scraped again by its county drill-down runs.
+    """
+    wanted = CATEGORY_CODES.get(category.strip().upper(), category.strip()) if category else ""
+    combos: list[QueryCombo] = []
+    for entry in entries:
+        if wanted and entry.get("category") != wanted:
+            continue
+        for city in SHANDONG_CITIES:
+            for county in counties_by_city.get(city, []):
+                combos.append(
+                    QueryCombo(
+                        qualification=entry["name"],
+                        city=city,
+                        county=county,
+                        code=entry.get("code", ""),
+                        category=entry.get("category", ""),
+                    )
+                )
+    return combos
 
 
 def load_region_tree(path: Path | None = None) -> dict:

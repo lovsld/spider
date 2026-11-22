@@ -912,18 +912,28 @@ def run_traversal(args: argparse.Namespace, limiter: RateLimiter) -> int:
     data is reported in needs_county_data, not treated as done.
     """
     try:
-        from filters import drill_down, entry_combos, load_counties, load_qualification_entries
+        from filters import county_combos, drill_down, entry_combos, load_counties, load_qualification_entries
     except ImportError:
-        from collector.filters import drill_down, entry_combos, load_counties, load_qualification_entries  # type: ignore
+        from collector.filters import county_combos, drill_down, entry_combos, load_counties, load_qualification_entries  # type: ignore
     entries = load_qualification_entries()
     if args.qualification:
         entries = [e for e in entries if e["name"] == args.qualification] or [
             {"name": args.qualification, "code": "", "category": "", "group": ""}
         ]
     counties = load_counties()
-    queue: list[QueryCombo] = entry_combos(entries, category=getattr(args, "category", "") or "")
+    category = getattr(args, "category", "") or ""
+    if (getattr(args, "level", "county") or "county") == "city":
+        queue: list[QueryCombo] = entry_combos(entries, category=category)
+    else:
+        # Default: direct county-level filtering. County combos are
+        # disjoint by registered region, so nothing is collected twice
+        # (the old city-first plan re-scraped an OVERFLOW city's records
+        # again in its county drill-down runs).
+        queue = county_combos(entries, counties, category=category)
     if args.city:
         queue = [c for c in queue if c.city == args.city]
+    if getattr(args, "county", ""):
+        queue = [c for c in queue if c.county == args.county]
     seen: set[tuple[str, str, str]] = set()
     while queue:
         combo = queue.pop(0)
@@ -944,6 +954,9 @@ def run_traversal(args: argparse.Namespace, limiter: RateLimiter) -> int:
                 queue.extend(drill_down(combo, counties) or [])
                 if not counties.get(combo.city):
                     print(f"[needs-county-data] {combo.city} 已 OVERFLOW 但尚无区县枚举数据，跳过下钻并保留标记。")
+                continue
+            if prior.get("overflow") and combo.level == "county":
+                print(f"[overflow-county] {combo.as_dict()} 此前已标记 OVERFLOW，跳过重跑，待人工决定。")
                 continue
         print(f"\n[traverse] {combo.as_dict()} -> {output}")
         combo_args = argparse.Namespace(**vars(args))
@@ -973,18 +986,24 @@ def print_plan(args: argparse.Namespace) -> int:
         from filters import city_combos, load_counties, load_qualifications
     except ImportError:
         from collector.filters import city_combos, load_counties, load_qualifications  # type: ignore
-    qualifications = load_qualifications()
-    combos = city_combos(qualifications)
     counties = load_counties()
     category = getattr(args, "category", "") or ""
-    if category:
-        try:
-            from filters import entry_combos, load_qualification_entries
-        except ImportError:
-            from collector.filters import entry_combos, load_qualification_entries  # type: ignore
-        combos = entry_combos(load_qualification_entries(), category=category)
-        qualifications = sorted({c.qualification for c in combos})
-    print(f"资质 {len(qualifications)} 个 x 山东 {len(counties)} 地市 = {len(combos)} 个市级组合")
+    level = getattr(args, "level", "county") or "county"
+    try:
+        from filters import county_combos, entry_combos, load_qualification_entries
+    except ImportError:
+        from collector.filters import county_combos, entry_combos, load_qualification_entries  # type: ignore
+    entries = load_qualification_entries()
+    if level == "city":
+        combos = entry_combos(entries, category=category)
+        scope = f"山东 {len(counties)} 地市"
+        unit = "市级组合"
+    else:
+        combos = county_combos(entries, counties, category=category)
+        scope = f"山东 {sum(len(v) for v in counties.values())} 区县"
+        unit = "区县级组合"
+    qualifications = sorted({c.qualification for c in combos})
+    print(f"资质 {len(qualifications)} 个 x {scope} = {len(combos)} 个{unit}")
     for q in qualifications:
         print(f"  - {q}")
     county_total = sum(len(v) for v in counties.values())
@@ -1004,7 +1023,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--qualification", default="", help="资质名称（原文）；默认沿用历史单组合")
     parser.add_argument("--city", default="", help="山东地市，如 济南；默认省级单组合")
     parser.add_argument("--county", default="", help="区县，如 历下区；需同时给 --city")
-    parser.add_argument("--traverse", action="store_true", help="遍历全部资质 x 山东各地市（平台字典 17 个），OVERFLOW 自动下钻区县")
+    parser.add_argument("--traverse", action="store_true", help="遍历全部资质（默认按区县筛选，组合互不重叠不重复采集）")
+    parser.add_argument("--level", choices=["county", "city"], default="county", help="遍历粒度：county=直接按区县筛选（默认）；city=按地市筛选、OVERFLOW 下钻区县（旧方案，备查市直登记企业）")
     parser.add_argument("--category", default="", help="只遍历一个资质类别：工程设计/工程勘察/建筑业企业资质/工程监理，或代码前缀 A/B/D/E")
     parser.add_argument("--plan-only", action="store_true", help="只打印遍历计划，不打开浏览器、不采集")
     return parser.parse_args()
