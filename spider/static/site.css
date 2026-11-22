@@ -1,0 +1,67 @@
+:root {
+  color: #1c1915;
+  background: #f4f1ea;
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Songti SC", serif;
+}
+body {
+  margin: 0 auto;
+  max-width: 1180px;
+  padding: 32px 20px 64px;
+}
+a { color: #8a3d12; }
+h1, h2, h3 { font-weight: 560; letter-spacing: 0; }
+h1 { margin: 0; font-size: 34px; }
+h2 { margin: 36px 0 10px; font-size: 22px; }
+h2 span { color: #746b60; font-size: 16px; }
+.eyebrow, .count, .back { color: #746b60; }
+.top { display: flex; justify-content: space-between; align-items: end; gap: 24px; }
+.filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 24px 0;
+  padding: 16px;
+  background: #fffdf8;
+  border: 1px solid #ddd4c4;
+}
+label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #574e43; }
+input {
+  border: 1px solid #cabbA4;
+  background: white;
+  padding: 8px 10px;
+  font: inherit;
+  color: inherit;
+}
+label.check { flex-direction: row; align-items: center; gap: 8px; }
+label.check input { width: auto; }
+.actions { display: flex; align-items: end; gap: 14px; }
+button {
+  border: 0;
+  background: #243126;
+  color: #f4f1ea;
+  padding: 9px 16px;
+  font: inherit;
+  cursor: pointer;
+}
+table { width: 100%; border-collapse: collapse; background: #fffdf8; font-size: 14px; }
+th, td { border-bottom: 1px solid #eadfce; padding: 9px 10px; text-align: left; vertical-align: top; }
+th { color: #574e43; font-weight: 560; }
+.empty { color: #746b60; }
+.pager { display: flex; gap: 16px; margin-top: 16px; }
+.facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 24px;
+  margin: 20px 0;
+}
+.facts .wide { grid-column: 1 / -1; }
+dt { color: #746b60; font-size: 13px; }
+dd { margin: 2px 0 0; }
+.card { background: #fffdf8; border: 1px solid #eadfce; padding: 12px 14px; margin-bottom: 10px; }
+.card h3 { margin: 0 0 6px; font-size: 17px; }
+.card p { margin: 0; color: #574e43; }
+pre { white-space: pre-wrap; font-family: inherit; margin: 10px 0 0; }
+@media (max-width: 800px) {
+  .filters, .facts { grid-template-columns: 1fr; }
+  .top { display: block; }
+}

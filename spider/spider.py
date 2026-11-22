@@ -163,6 +163,144 @@ LIST_ROWS_JS = """
 }
 """
 
+PERFORMANCE_DIALOG_TITLE = "业绩技术指标详情"
+
+# Footer「关 闭」is more stable than the header X when the table repaints or paginates.
+
+OPEN_PERFORMANCE_ROW_JS = """
+({paneId, recordId}) => {
+  const pane = document.getElementById(paneId);
+  if (!pane) return false;
+  const trs = [...pane.querySelectorAll('.el-table__body-wrapper tbody tr')];
+  const openIn = (tr) => {
+    const hit = [...tr.querySelectorAll('button, a, span')].find((el) =>
+      /查看|详情/.test((el.innerText || '').trim())
+    );
+    if (hit) {
+      hit.click();
+      return true;
+    }
+    return false;
+  };
+  if (recordId) {
+    for (const tr of trs) {
+      if ((tr.innerText || '').includes(recordId) && openIn(tr)) return true;
+    }
+  }
+  for (const tr of trs) {
+    if (openIn(tr)) return true;
+  }
+  return false;
+}
+"""
+
+PERFORMANCE_DIALOG_STATE_JS = """
+(recordId) => {
+  function shown(wrap) {
+    if (!wrap) return false;
+    const style = getComputedStyle(wrap);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    const rect = wrap.getBoundingClientRect();
+    return rect.width > 8 && rect.height > 8;
+  }
+  let wrap = null;
+  for (const candidate of document.querySelectorAll('.el-dialog__wrapper')) {
+    if (candidate.querySelector('.captchaDilaog')) continue;
+    if (!shown(candidate)) continue;
+    const title = (candidate.querySelector('.el-dialog__title')?.innerText || '')
+      .replace(/\\s+/g, '');
+    if (title.includes('业绩技术指标详情')) wrap = candidate;
+  }
+  if (!wrap) return {visible: false, loading: false, text: '', recordMatch: !recordId};
+  const loading = [...wrap.querySelectorAll('.el-loading-mask')].some((mask) =>
+    getComputedStyle(mask).display !== 'none'
+  );
+  const text = (wrap.innerText || '').replace(/[ \\t]+/g, ' ').trim();
+  const recordMatch = !recordId || text.includes(recordId);
+  return {visible: true, loading, text, recordMatch};
+}
+"""
+
+EXTRACT_PERFORMANCE_DIALOG_JS = """
+() => {
+  function shown(wrap) {
+    if (!wrap) return false;
+    const style = getComputedStyle(wrap);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    const rect = wrap.getBoundingClientRect();
+    return rect.width > 8 && rect.height > 8;
+  }
+  let wrap = null;
+  for (const candidate of document.querySelectorAll('.el-dialog__wrapper')) {
+    if (candidate.querySelector('.captchaDilaog')) continue;
+    if (!shown(candidate)) continue;
+    const title = (candidate.querySelector('.el-dialog__title')?.innerText || '')
+      .replace(/\\s+/g, '');
+    if (title.includes('业绩技术指标详情')) wrap = candidate;
+  }
+  if (!wrap) return null;
+  const tables = [...wrap.querySelectorAll('.el-table')].map((table) => {
+    const headers = [...table.querySelectorAll('.el-table__header-wrapper th')]
+      .map((th) => (th.innerText || '').replace(/\\s+/g, ' ').trim())
+      .filter(Boolean);
+    const body = [...table.querySelectorAll('.el-table__body-wrapper tbody tr')].map((tr) =>
+      [...tr.querySelectorAll('td .cell')].map((cell) => cell.innerText.replace(/\\s+/g, ' ').trim())
+    );
+    return {headers, body};
+  });
+  const text = (wrap.innerText || '').replace(/[ \\t]+/g, ' ').trim();
+  return {title: wrap.querySelector('.el-dialog__title')?.innerText.trim() || '', tables, text};
+}
+"""
+
+CLOSE_PERFORMANCE_DIALOG_JS = """
+() => {
+  function shown(wrap) {
+    if (!wrap) return false;
+    const style = getComputedStyle(wrap);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    const rect = wrap.getBoundingClientRect();
+    return rect.width > 8 && rect.height > 8;
+  }
+  let wrap = null;
+  for (const candidate of document.querySelectorAll('.el-dialog__wrapper')) {
+    if (candidate.querySelector('.captchaDilaog')) continue;
+    if (!shown(candidate)) continue;
+    const title = (candidate.querySelector('.el-dialog__title')?.innerText || '')
+      .replace(/\\s+/g, '');
+    if (title.includes('业绩技术指标详情')) wrap = candidate;
+  }
+  if (!wrap) return {present: false, method: 'absent'};
+  const pick = [...wrap.querySelectorAll(
+    '.el-dialog__footer button, .dialog-footer button, .el-dialog__body button, button'
+  )].find((btn) => /关\\s*闭/.test((btn.innerText || '').trim()));
+  if (pick) {
+    pick.click();
+    return {present: true, method: 'footer'};
+  }
+  const header = wrap.querySelector('.el-dialog__headerbtn');
+  if (header) {
+    header.click();
+    return {present: true, method: 'header'};
+  }
+  return {present: true, method: 'none'};
+}
+"""
+
+PERFORMANCE_DIALOG_OPEN_JS = """
+() => {
+  for (const wrap of document.querySelectorAll('.el-dialog__wrapper')) {
+    const style = getComputedStyle(wrap);
+    if (style.display === 'none' || style.visibility === 'hidden') continue;
+    if (wrap.querySelector('.captchaDilaog')) continue;
+    const title = (wrap.querySelector('.el-dialog__title')?.innerText || '')
+      .replace(/\\s+/g, '');
+    if (title.includes('业绩技术指标详情')) return true;
+  }
+  return false;
+}
+"""
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -325,65 +463,106 @@ def collect_section(page: Page, section: str, limiter: RateLimiter) -> dict[str,
         )
         if not has_next:
             break
+        if section == "业绩技术指标":
+            ensure_performance_dialog_closed(page)
         limiter.wait(f"opening the next {section} page")
         page.locator(f"#{pane_id} .btn-next").click()
         settle(page, f"the next {section} page")
     return {"headers": headers, "rows": collected}
 
 
+def performance_dialog_open(page: Page) -> bool:
+    try:
+        return bool(page.evaluate(PERFORMANCE_DIALOG_OPEN_JS))
+    except Exception:
+        return False
+
+
+def wait_performance_dialog_ready(page: Page, record_id: str = "") -> None:
+    """Wait until the detail dialog is visible, loaded, and text-stable."""
+    deadline = time.monotonic() + 20.0
+    last_text: str | None = None
+    stable_passes = 0
+    while time.monotonic() < deadline:
+        require_human_captcha_resolution(page)
+        state = page.evaluate(PERFORMANCE_DIALOG_STATE_JS, record_id or "")
+        if not state.get("visible"):
+            pause(page)
+            continue
+        if state.get("loading"):
+            stable_passes = 0
+            pause(page)
+            continue
+        if record_id and not state.get("recordMatch"):
+            stable_passes = 0
+            pause(page)
+            continue
+        text = str(state.get("text") or "")
+        if text and text == last_text:
+            stable_passes += 1
+            if stable_passes >= 2:
+                return
+        else:
+            stable_passes = 0
+            last_text = text
+        pause(page)
+    print("[warning] 业绩技术指标详情弹窗未在时限内稳定，仍尝试读取并关闭。")
+
+
+def close_performance_dialog(page: Page) -> bool:
+    """Close the performance dialog; return True when it is no longer open."""
+    for attempt in range(10):
+        if not performance_dialog_open(page):
+            return True
+        try:
+            outcome = page.evaluate(CLOSE_PERFORMANCE_DIALOG_JS)
+        except Exception:
+            outcome = {"present": True, "method": "error"}
+        if outcome.get("method") == "none":
+            page.keyboard.press("Escape")
+        deadline = time.monotonic() + 3.0
+        while time.monotonic() < deadline:
+            if not performance_dialog_open(page):
+                return True
+            pause(page)
+    if performance_dialog_open(page):
+        print("[warning] 业绩技术指标详情未能自动关闭，请人工点「关闭」；脚本将等待。")
+        while performance_dialog_open(page):
+            require_human_captcha_resolution(page)
+            pause(page)
+        return True
+    return not performance_dialog_open(page)
+
+
+def ensure_performance_dialog_closed(page: Page) -> None:
+    while performance_dialog_open(page):
+        close_performance_dialog(page)
+
+
 def attach_performance_details(page: Page, rows: list[dict[str, str]], limiter: RateLimiter) -> list[dict[str, str]]:
     """Open 业绩技术指标 row dialogs when the table only summarizes the record."""
     pane_id = active_pane_id(page)
-    buttons = page.locator(f"#{pane_id} .el-table__body-wrapper tbody tr")
     detailed: list[dict[str, str]] = []
-    for index, row in enumerate(rows):
+    ensure_performance_dialog_closed(page)
+    for row in rows:
         item = dict(row)
-        button = buttons.nth(index).locator("button, a, span").filter(
-            has_text=re.compile(r"查看|详情")
-        ).first
-        try:
-            if index >= buttons.count() or not button.is_visible(timeout=300):
-                detailed.append(item)
-                continue
-        except Exception:
+        record_id = str(row.get("业绩记录编号") or "").strip()
+        limiter.wait("opening a performance-detail dialog")
+        opened = page.evaluate(
+            OPEN_PERFORMANCE_ROW_JS,
+            {"paneId": pane_id, "recordId": record_id},
+        )
+        if not opened:
             detailed.append(item)
             continue
-        limiter.wait("opening a performance-detail dialog")
-        button.click()
-        settle(page, "the performance-detail dialog")
-        dialog = page.evaluate(
-            """() => {
-              const wraps = [...document.querySelectorAll('.el-dialog__wrapper')].filter((wrap) => {
-                const style = getComputedStyle(wrap);
-                return style.display !== 'none' && !wrap.querySelector('.captchaDilaog');
-              });
-              const wrap = wraps.at(-1);
-              if (!wrap) return null;
-              const tables = [...wrap.querySelectorAll('.el-table')].map((table) => {
-                const headers = [...table.querySelectorAll('.el-table__header-wrapper th')]
-                  .map((th) => (th.innerText || '').replace(/\\s+/g, ' ').trim())
-                  .filter(Boolean);
-                const body = [...table.querySelectorAll('.el-table__body-wrapper tbody tr')].map((tr) =>
-                  [...tr.querySelectorAll('td .cell')].map((cell) => cell.innerText.replace(/\\s+/g, ' ').trim())
-                );
-                return {headers, body};
-              });
-              const text = (wrap.innerText || '').replace(/[ \\t]+/g, ' ').trim();
-              return {title: wrap.querySelector('.el-dialog__title')?.innerText.trim() || '', tables, text};
-            }"""
-        )
+        wait_performance_dialog_ready(page, record_id)
+        dialog = page.evaluate(EXTRACT_PERFORMANCE_DIALOG_JS)
         if dialog:
             item["详情"] = dialog
-        close = page.locator(".el-dialog__wrapper:visible .el-dialog__headerbtn").first
-        try:
-            if close.is_visible(timeout=500):
-                close.click()
-            else:
-                page.keyboard.press("Escape")
-        except Exception:
-            page.keyboard.press("Escape")
-        pause(page)
+        if not close_performance_dialog(page):
+            ensure_performance_dialog_closed(page)
         detailed.append(item)
+    ensure_performance_dialog_closed(page)
     return detailed
 
 

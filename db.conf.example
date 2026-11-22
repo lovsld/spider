@@ -1,0 +1,7 @@
+host=172.18.1.72
+host_name=kg-bsz02.altare.global
+port=5432
+dbname=appdb
+user=appuser
+password=
+ssh_host=Altare
