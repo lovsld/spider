@@ -938,7 +938,7 @@ def print_plan(args: argparse.Namespace) -> int:
     qualifications = load_qualifications()
     combos = city_combos(qualifications)
     counties = load_counties()
-    print(f"资质 {len(qualifications)} 个 x 山东 16 地市 = {len(combos)} 个市级组合")
+    print(f"资质 {len(qualifications)} 个 x 山东 {len(counties)} 地市 = {len(combos)} 个市级组合")
     for q in qualifications:
         print(f"  - {q}")
     county_total = sum(len(v) for v in counties.values())
@@ -958,7 +958,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--qualification", default="", help="资质名称（原文）；默认沿用历史单组合")
     parser.add_argument("--city", default="", help="山东地市，如 济南；默认省级单组合")
     parser.add_argument("--county", default="", help="区县，如 历下区；需同时给 --city")
-    parser.add_argument("--traverse", action="store_true", help="遍历全部资质 x 山东16地市，OVERFLOW 自动下钻区县")
+    parser.add_argument("--traverse", action="store_true", help="遍历全部资质 x 山东各地市（平台字典 17 个），OVERFLOW 自动下钻区县")
     parser.add_argument("--plan-only", action="store_true", help="只打印遍历计划，不打开浏览器、不采集")
     return parser.parse_args()
 

@@ -12,6 +12,7 @@ from filters import (  # noqa: E402
     drill_down,
     is_overflow,
     load_counties,
+    load_qualification_entries,
     load_qualifications,
 )
 
@@ -20,14 +21,14 @@ def test_display_limit_is_450():
     assert DISPLAY_LIMIT == 450
 
 
-def test_shandong_has_16_cities():
-    assert len(SHANDONG_CITIES) == 16
+def test_shandong_has_17_cities_per_platform_dictionary():
+    assert len(SHANDONG_CITIES) == 17
     assert "济南" in SHANDONG_CITIES and "青岛" in SHANDONG_CITIES
 
 
 def test_city_combos_cover_every_qualification_and_city():
     combos = city_combos(["甲资质", "乙资质"])
-    assert len(combos) == 2 * 16
+    assert len(combos) == 2 * len(SHANDONG_CITIES)
     assert all(c.level == "city" for c in combos)
 
 
@@ -69,3 +70,16 @@ def test_source_query_dict():
     assert combo.as_dict() == {
         "qualification": "甲", "province": "山东", "city": "济南", "county": "历下区",
     }
+
+
+def test_platform_dictionary_files():
+    entries = load_qualification_entries()
+    assert len(entries) == 599
+    by_code = {e["code"]: e["name"] for e in entries if e["code"]}
+    assert by_code["D101A"] == "建筑工程施工总承包一级"
+    assert {e["category"] for e in entries} == {"工程设计", "工程勘察", "建筑业企业资质", "工程监理"}
+    counties = load_counties()
+    assert len(counties) == 17 and "莱芜" in counties  # platform dictionary still lists 莱芜
+    assert sum(len(v) for v in counties.values()) == 137
+    assert counties["济南"][0] == "历下区"
+    assert len(city_combos(load_qualifications())) == 599 * 17

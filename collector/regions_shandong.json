@@ -1,0 +1,811 @@
+{
+  "region_id": "370000",
+  "region_name": "山东",
+  "region_fullname": "山东省",
+  "children": [
+    {
+      "region_id": "370100",
+      "region_name": "济南",
+      "region_fullname": "山东省-济南市",
+      "children": [
+        {
+          "region_id": "370102",
+          "region_name": "历下区",
+          "region_fullname": "山东省-济南市-历下区"
+        },
+        {
+          "region_id": "370103",
+          "region_name": "市中区",
+          "region_fullname": "山东省-济南市-市中区"
+        },
+        {
+          "region_id": "370104",
+          "region_name": "槐荫区",
+          "region_fullname": "山东省-济南市-槐荫区"
+        },
+        {
+          "region_id": "370105",
+          "region_name": "天桥区",
+          "region_fullname": "山东省-济南市-天桥区"
+        },
+        {
+          "region_id": "370112",
+          "region_name": "历城区",
+          "region_fullname": "山东省-济南市-历城区"
+        },
+        {
+          "region_id": "370113",
+          "region_name": "长清区",
+          "region_fullname": "山东省-济南市-长清区"
+        },
+        {
+          "region_id": "370124",
+          "region_name": "平阴县",
+          "region_fullname": "山东省-济南市-平阴县"
+        },
+        {
+          "region_id": "370125",
+          "region_name": "济阳县",
+          "region_fullname": "山东省-济南市-济阳县"
+        },
+        {
+          "region_id": "370126",
+          "region_name": "商河县",
+          "region_fullname": "山东省-济南市-商河县"
+        },
+        {
+          "region_id": "370181",
+          "region_name": "章丘",
+          "region_fullname": "山东省-济南市-章丘市"
+        }
+      ]
+    },
+    {
+      "region_id": "370200",
+      "region_name": "青岛",
+      "region_fullname": "山东省-青岛市",
+      "children": [
+        {
+          "region_id": "370202",
+          "region_name": "市南区",
+          "region_fullname": "山东省-青岛市-市南区"
+        },
+        {
+          "region_id": "370203",
+          "region_name": "市北区",
+          "region_fullname": "山东省-青岛市-市北区"
+        },
+        {
+          "region_id": "370211",
+          "region_name": "黄岛区",
+          "region_fullname": "山东省-青岛市-黄岛区"
+        },
+        {
+          "region_id": "370212",
+          "region_name": "崂山区",
+          "region_fullname": "山东省-青岛市-崂山区"
+        },
+        {
+          "region_id": "370213",
+          "region_name": "李沧区",
+          "region_fullname": "山东省-青岛市-李沧区"
+        },
+        {
+          "region_id": "370214",
+          "region_name": "城阳区",
+          "region_fullname": "山东省-青岛市-城阳区"
+        },
+        {
+          "region_id": "370281",
+          "region_name": "胶州",
+          "region_fullname": "山东省-青岛市-胶州市"
+        },
+        {
+          "region_id": "370282",
+          "region_name": "即墨",
+          "region_fullname": "山东省-青岛市-即墨市"
+        },
+        {
+          "region_id": "370283",
+          "region_name": "平度",
+          "region_fullname": "山东省-青岛市-平度市"
+        },
+        {
+          "region_id": "370285",
+          "region_name": "莱西",
+          "region_fullname": "山东省-青岛市-莱西市"
+        }
+      ]
+    },
+    {
+      "region_id": "370300",
+      "region_name": "淄博",
+      "region_fullname": "山东省-淄博市",
+      "children": [
+        {
+          "region_id": "370302",
+          "region_name": "淄川区",
+          "region_fullname": "山东省-淄博市-淄川区"
+        },
+        {
+          "region_id": "370303",
+          "region_name": "张店区",
+          "region_fullname": "山东省-淄博市-张店区"
+        },
+        {
+          "region_id": "370304",
+          "region_name": "博山区",
+          "region_fullname": "山东省-淄博市-博山区"
+        },
+        {
+          "region_id": "370305",
+          "region_name": "临淄区",
+          "region_fullname": "山东省-淄博市-临淄区"
+        },
+        {
+          "region_id": "370306",
+          "region_name": "周村区",
+          "region_fullname": "山东省-淄博市-周村区"
+        },
+        {
+          "region_id": "370321",
+          "region_name": "桓台县",
+          "region_fullname": "山东省-淄博市-桓台县"
+        },
+        {
+          "region_id": "370322",
+          "region_name": "高青县",
+          "region_fullname": "山东省-淄博市-高青县"
+        },
+        {
+          "region_id": "370323",
+          "region_name": "沂源县",
+          "region_fullname": "山东省-淄博市-沂源县"
+        }
+      ]
+    },
+    {
+      "region_id": "370400",
+      "region_name": "枣庄",
+      "region_fullname": "山东省-枣庄市",
+      "children": [
+        {
+          "region_id": "370402",
+          "region_name": "市中区",
+          "region_fullname": "山东省-枣庄市-市中区"
+        },
+        {
+          "region_id": "370403",
+          "region_name": "薛城区",
+          "region_fullname": "山东省-枣庄市-薛城区"
+        },
+        {
+          "region_id": "370404",
+          "region_name": "峄城区",
+          "region_fullname": "山东省-枣庄市-峄城区"
+        },
+        {
+          "region_id": "370405",
+          "region_name": "台儿庄区",
+          "region_fullname": "山东省-枣庄市-台儿庄区"
+        },
+        {
+          "region_id": "370406",
+          "region_name": "山亭区",
+          "region_fullname": "山东省-枣庄市-山亭区"
+        },
+        {
+          "region_id": "370481",
+          "region_name": "滕州",
+          "region_fullname": "山东省-枣庄市-滕州市"
+        }
+      ]
+    },
+    {
+      "region_id": "370500",
+      "region_name": "东营",
+      "region_fullname": "山东省-东营市",
+      "children": [
+        {
+          "region_id": "370502",
+          "region_name": "东营区",
+          "region_fullname": "山东省-东营市-东营区"
+        },
+        {
+          "region_id": "370503",
+          "region_name": "河口区",
+          "region_fullname": "山东省-东营市-河口区"
+        },
+        {
+          "region_id": "370505",
+          "region_name": "垦利区?",
+          "region_fullname": "山东省-东营市-垦利区"
+        },
+        {
+          "region_id": "370522",
+          "region_name": "利津县",
+          "region_fullname": "山东省-东营市-利津县"
+        },
+        {
+          "region_id": "370523",
+          "region_name": "广饶县",
+          "region_fullname": "山东省-东营市-广饶县"
+        }
+      ]
+    },
+    {
+      "region_id": "370600",
+      "region_name": "烟台",
+      "region_fullname": "山东省-烟台市",
+      "children": [
+        {
+          "region_id": "370602",
+          "region_name": "芝罘区",
+          "region_fullname": "山东省-烟台市-芝罘区"
+        },
+        {
+          "region_id": "370611",
+          "region_name": "福山区",
+          "region_fullname": "山东省-烟台市-福山区"
+        },
+        {
+          "region_id": "370612",
+          "region_name": "牟平区",
+          "region_fullname": "山东省-烟台市-牟平区"
+        },
+        {
+          "region_id": "370613",
+          "region_name": "莱山区",
+          "region_fullname": "山东省-烟台市-莱山区"
+        },
+        {
+          "region_id": "370634",
+          "region_name": "长岛县",
+          "region_fullname": "山东省-烟台市-长岛县"
+        },
+        {
+          "region_id": "370681",
+          "region_name": "龙口",
+          "region_fullname": "山东省-烟台市-龙口市"
+        },
+        {
+          "region_id": "370682",
+          "region_name": "莱阳",
+          "region_fullname": "山东省-烟台市-莱阳市"
+        },
+        {
+          "region_id": "370683",
+          "region_name": "莱州",
+          "region_fullname": "山东省-烟台市-莱州市"
+        },
+        {
+          "region_id": "370684",
+          "region_name": "蓬莱",
+          "region_fullname": "山东省-烟台市-蓬莱市"
+        },
+        {
+          "region_id": "370685",
+          "region_name": "招远",
+          "region_fullname": "山东省-烟台市-招远市"
+        },
+        {
+          "region_id": "370686",
+          "region_name": "栖霞",
+          "region_fullname": "山东省-烟台市-栖霞市"
+        },
+        {
+          "region_id": "370687",
+          "region_name": "海阳",
+          "region_fullname": "山东省-烟台市-海阳市"
+        }
+      ]
+    },
+    {
+      "region_id": "370700",
+      "region_name": "潍坊",
+      "region_fullname": "山东省-潍坊市",
+      "children": [
+        {
+          "region_id": "370702",
+          "region_name": "潍城区",
+          "region_fullname": "山东省-潍坊市-潍城区"
+        },
+        {
+          "region_id": "370703",
+          "region_name": "寒亭区",
+          "region_fullname": "山东省-潍坊市-寒亭区"
+        },
+        {
+          "region_id": "370704",
+          "region_name": "坊子区",
+          "region_fullname": "山东省-潍坊市-坊子区"
+        },
+        {
+          "region_id": "370705",
+          "region_name": "奎文区",
+          "region_fullname": "山东省-潍坊市-奎文区"
+        },
+        {
+          "region_id": "370724",
+          "region_name": "临朐县",
+          "region_fullname": "山东省-潍坊市-临朐县"
+        },
+        {
+          "region_id": "370725",
+          "region_name": "昌乐县",
+          "region_fullname": "山东省-潍坊市-昌乐县"
+        },
+        {
+          "region_id": "370781",
+          "region_name": "青州",
+          "region_fullname": "山东省-潍坊市-青州市"
+        },
+        {
+          "region_id": "370782",
+          "region_name": "诸城",
+          "region_fullname": "山东省-潍坊市-诸城市"
+        },
+        {
+          "region_id": "370783",
+          "region_name": "寿光",
+          "region_fullname": "山东省-潍坊市-寿光市"
+        },
+        {
+          "region_id": "370784",
+          "region_name": "安丘",
+          "region_fullname": "山东省-潍坊市-安丘市"
+        },
+        {
+          "region_id": "370785",
+          "region_name": "高密",
+          "region_fullname": "山东省-潍坊市-高密市"
+        },
+        {
+          "region_id": "370786",
+          "region_name": "昌邑",
+          "region_fullname": "山东省-潍坊市-昌邑市"
+        }
+      ]
+    },
+    {
+      "region_id": "370800",
+      "region_name": "济宁",
+      "region_fullname": "山东省-济宁市",
+      "children": [
+        {
+          "region_id": "370811",
+          "region_name": "任城区",
+          "region_fullname": "山东省-济宁市-任城区"
+        },
+        {
+          "region_id": "370812",
+          "region_name": "兖州区",
+          "region_fullname": "山东省-济宁市-兖州区"
+        },
+        {
+          "region_id": "370826",
+          "region_name": "微山县",
+          "region_fullname": "山东省-济宁市-微山县"
+        },
+        {
+          "region_id": "370827",
+          "region_name": "鱼台县",
+          "region_fullname": "山东省-济宁市-鱼台县"
+        },
+        {
+          "region_id": "370828",
+          "region_name": "金乡县",
+          "region_fullname": "山东省-济宁市-金乡县"
+        },
+        {
+          "region_id": "370829",
+          "region_name": "嘉祥县",
+          "region_fullname": "山东省-济宁市-嘉祥县"
+        },
+        {
+          "region_id": "370830",
+          "region_name": "汶上县",
+          "region_fullname": "山东省-济宁市-汶上县"
+        },
+        {
+          "region_id": "370831",
+          "region_name": "泗水县",
+          "region_fullname": "山东省-济宁市-泗水县"
+        },
+        {
+          "region_id": "370832",
+          "region_name": "梁山县",
+          "region_fullname": "山东省-济宁市-梁山县"
+        },
+        {
+          "region_id": "370881",
+          "region_name": "曲阜",
+          "region_fullname": "山东省-济宁市-曲阜市"
+        },
+        {
+          "region_id": "370883",
+          "region_name": "邹城",
+          "region_fullname": "山东省-济宁市-邹城市"
+        }
+      ]
+    },
+    {
+      "region_id": "370900",
+      "region_name": "泰安",
+      "region_fullname": "山东省-泰安市",
+      "children": [
+        {
+          "region_id": "370902",
+          "region_name": "泰山区",
+          "region_fullname": "山东省-泰安市-泰山区"
+        },
+        {
+          "region_id": "370911",
+          "region_name": "岱岳区",
+          "region_fullname": "山东省-泰安市-岱岳区"
+        },
+        {
+          "region_id": "370921",
+          "region_name": "宁阳县",
+          "region_fullname": "山东省-泰安市-宁阳县"
+        },
+        {
+          "region_id": "370923",
+          "region_name": "东平县",
+          "region_fullname": "山东省-泰安市-东平县"
+        },
+        {
+          "region_id": "370982",
+          "region_name": "新泰",
+          "region_fullname": "山东省-泰安市-新泰市"
+        },
+        {
+          "region_id": "370983",
+          "region_name": "肥城",
+          "region_fullname": "山东省-泰安市-肥城市"
+        }
+      ]
+    },
+    {
+      "region_id": "371000",
+      "region_name": "威海",
+      "region_fullname": "山东省-威海市",
+      "children": [
+        {
+          "region_id": "371002",
+          "region_name": "环翠区",
+          "region_fullname": "山东省-威海市-环翠区"
+        },
+        {
+          "region_id": "371003",
+          "region_name": "文登区",
+          "region_fullname": "山东省-威海市-文登区"
+        },
+        {
+          "region_id": "371082",
+          "region_name": "荣成",
+          "region_fullname": "山东省-威海市-荣成市"
+        },
+        {
+          "region_id": "371083",
+          "region_name": "乳山",
+          "region_fullname": "山东省-威海市-乳山市"
+        }
+      ]
+    },
+    {
+      "region_id": "371100",
+      "region_name": "日照",
+      "region_fullname": "山东省-日照市",
+      "children": [
+        {
+          "region_id": "371102",
+          "region_name": "东港区",
+          "region_fullname": "山东省-日照市-东港区"
+        },
+        {
+          "region_id": "371103",
+          "region_name": "岚山区",
+          "region_fullname": "山东省-日照市-岚山区"
+        },
+        {
+          "region_id": "371121",
+          "region_name": "五莲县",
+          "region_fullname": "山东省-日照市-五莲县"
+        },
+        {
+          "region_id": "371122",
+          "region_name": "莒县",
+          "region_fullname": "山东省-日照市-莒县"
+        }
+      ]
+    },
+    {
+      "region_id": "371200",
+      "region_name": "莱芜",
+      "region_fullname": "山东省-莱芜市",
+      "children": [
+        {
+          "region_id": "371202",
+          "region_name": "莱城区",
+          "region_fullname": "山东省-莱芜市-莱城区"
+        },
+        {
+          "region_id": "371203",
+          "region_name": "钢城区",
+          "region_fullname": "山东省-莱芜市-钢城区"
+        }
+      ]
+    },
+    {
+      "region_id": "371300",
+      "region_name": "临沂",
+      "region_fullname": "山东省-临沂市",
+      "children": [
+        {
+          "region_id": "371302",
+          "region_name": "兰山区",
+          "region_fullname": "山东省-临沂市-兰山区"
+        },
+        {
+          "region_id": "371311",
+          "region_name": "罗庄区",
+          "region_fullname": "山东省-临沂市-罗庄区"
+        },
+        {
+          "region_id": "371312",
+          "region_name": "河东区",
+          "region_fullname": "山东省-临沂市-河东区"
+        },
+        {
+          "region_id": "371321",
+          "region_name": "沂南县",
+          "region_fullname": "山东省-临沂市-沂南县"
+        },
+        {
+          "region_id": "371322",
+          "region_name": "郯城县",
+          "region_fullname": "山东省-临沂市-郯城县"
+        },
+        {
+          "region_id": "371323",
+          "region_name": "沂水县",
+          "region_fullname": "山东省-临沂市-沂水县"
+        },
+        {
+          "region_id": "371324",
+          "region_name": "兰陵县",
+          "region_fullname": "山东省-临沂市-兰陵县"
+        },
+        {
+          "region_id": "371325",
+          "region_name": "费县",
+          "region_fullname": "山东省-临沂市-费县"
+        },
+        {
+          "region_id": "371326",
+          "region_name": "平邑县",
+          "region_fullname": "山东省-临沂市-平邑县"
+        },
+        {
+          "region_id": "371327",
+          "region_name": "莒南县",
+          "region_fullname": "山东省-临沂市-莒南县"
+        },
+        {
+          "region_id": "371328",
+          "region_name": "蒙阴县",
+          "region_fullname": "山东省-临沂市-蒙阴县"
+        },
+        {
+          "region_id": "371329",
+          "region_name": "临沭县",
+          "region_fullname": "山东省-临沂市-临沭县"
+        }
+      ]
+    },
+    {
+      "region_id": "371400",
+      "region_name": "德州",
+      "region_fullname": "山东省-德州市",
+      "children": [
+        {
+          "region_id": "371402",
+          "region_name": "德城区",
+          "region_fullname": "山东省-德州市-德城区"
+        },
+        {
+          "region_id": "371403",
+          "region_name": "陵城区",
+          "region_fullname": "山东省-德州市-陵城区"
+        },
+        {
+          "region_id": "371422",
+          "region_name": "宁津县",
+          "region_fullname": "山东省-德州市-宁津县"
+        },
+        {
+          "region_id": "371423",
+          "region_name": "庆云县",
+          "region_fullname": "山东省-德州市-庆云县"
+        },
+        {
+          "region_id": "371424",
+          "region_name": "临邑县",
+          "region_fullname": "山东省-德州市-临邑县"
+        },
+        {
+          "region_id": "371425",
+          "region_name": "齐河县",
+          "region_fullname": "山东省-德州市-齐河县"
+        },
+        {
+          "region_id": "371426",
+          "region_name": "平原县",
+          "region_fullname": "山东省-德州市-平原县"
+        },
+        {
+          "region_id": "371427",
+          "region_name": "夏津县",
+          "region_fullname": "山东省-德州市-夏津县"
+        },
+        {
+          "region_id": "371428",
+          "region_name": "武城县",
+          "region_fullname": "山东省-德州市-武城县"
+        },
+        {
+          "region_id": "371481",
+          "region_name": "乐陵",
+          "region_fullname": "山东省-德州市-乐陵市"
+        },
+        {
+          "region_id": "371482",
+          "region_name": "禹城",
+          "region_fullname": "山东省-德州市-禹城市"
+        }
+      ]
+    },
+    {
+      "region_id": "371500",
+      "region_name": "聊城",
+      "region_fullname": "山东省-聊城市",
+      "children": [
+        {
+          "region_id": "371502",
+          "region_name": "东昌府区",
+          "region_fullname": "山东省-聊城市-东昌府区"
+        },
+        {
+          "region_id": "371521",
+          "region_name": "阳谷县",
+          "region_fullname": "山东省-聊城市-阳谷县"
+        },
+        {
+          "region_id": "371522",
+          "region_name": "莘县",
+          "region_fullname": "山东省-聊城市-莘县"
+        },
+        {
+          "region_id": "371523",
+          "region_name": "茌平县",
+          "region_fullname": "山东省-聊城市-茌平县"
+        },
+        {
+          "region_id": "371524",
+          "region_name": "东阿县",
+          "region_fullname": "山东省-聊城市-东阿县"
+        },
+        {
+          "region_id": "371525",
+          "region_name": "冠县",
+          "region_fullname": "山东省-聊城市-冠县"
+        },
+        {
+          "region_id": "371526",
+          "region_name": "高唐县",
+          "region_fullname": "山东省-聊城市-高唐县"
+        },
+        {
+          "region_id": "371581",
+          "region_name": "临清",
+          "region_fullname": "山东省-聊城市-临清市"
+        }
+      ]
+    },
+    {
+      "region_id": "371600",
+      "region_name": "滨州",
+      "region_fullname": "山东省-滨州市",
+      "children": [
+        {
+          "region_id": "371602",
+          "region_name": "滨城区",
+          "region_fullname": "山东省-滨州市-滨城区"
+        },
+        {
+          "region_id": "371603",
+          "region_name": "沾化区",
+          "region_fullname": "山东省-滨州市-沾化区"
+        },
+        {
+          "region_id": "371621",
+          "region_name": "惠民县",
+          "region_fullname": "山东省-滨州市-惠民县"
+        },
+        {
+          "region_id": "371622",
+          "region_name": "阳信县",
+          "region_fullname": "山东省-滨州市-阳信县"
+        },
+        {
+          "region_id": "371623",
+          "region_name": "无棣县",
+          "region_fullname": "山东省-滨州市-无棣县"
+        },
+        {
+          "region_id": "371625",
+          "region_name": "博兴县",
+          "region_fullname": "山东省-滨州市-博兴县"
+        },
+        {
+          "region_id": "371626",
+          "region_name": "邹平县",
+          "region_fullname": "山东省-滨州市-邹平县"
+        }
+      ]
+    },
+    {
+      "region_id": "371700",
+      "region_name": "菏泽",
+      "region_fullname": "山东省-菏泽市",
+      "children": [
+        {
+          "region_id": "371702",
+          "region_name": "牡丹区",
+          "region_fullname": "山东省-菏泽市-牡丹区"
+        },
+        {
+          "region_id": "371703",
+          "region_name": "定陶区",
+          "region_fullname": "山东省-菏泽市-定陶区"
+        },
+        {
+          "region_id": "371721",
+          "region_name": "曹县",
+          "region_fullname": "山东省-菏泽市-曹县"
+        },
+        {
+          "region_id": "371722",
+          "region_name": "单县",
+          "region_fullname": "山东省-菏泽市-单县"
+        },
+        {
+          "region_id": "371723",
+          "region_name": "成武县",
+          "region_fullname": "山东省-菏泽市-成武县"
+        },
+        {
+          "region_id": "371724",
+          "region_name": "巨野县",
+          "region_fullname": "山东省-菏泽市-巨野县"
+        },
+        {
+          "region_id": "371725",
+          "region_name": "郓城县",
+          "region_fullname": "山东省-菏泽市-郓城县"
+        },
+        {
+          "region_id": "371726",
+          "region_name": "鄄城县",
+          "region_fullname": "山东省-菏泽市-鄄城县"
+        },
+        {
+          "region_id": "371728",
+          "region_name": "东明县",
+          "region_fullname": "山东省-菏泽市-东明县"
+        }
+      ]
+    }
+  ]
+}

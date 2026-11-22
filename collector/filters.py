@@ -12,14 +12,17 @@ The platform (https://jzsc.mohurd.gov.cn/data/company) shows at most
      and is reported for a human decision, not silently truncated.
 
 Qualification names and county names must come from the platform's own
-filter dialogs (see docs/COLLECTOR.md). They are loaded from JSON files
+dictionaries (see docs/COLLECTOR.md). They are loaded from JSON files
 next to this module when present:
 
-  qualifications.json    ["建筑工程施工总承包一级", ...]  (verbatim names)
-  shandong_counties.json {"济南": ["历下区", ...], ...}
+  qualifications_tree.json  the platform qualification dictionary, verbatim
+  qualifications.json       flat [{"name", "code", "category", "group"}]
+                            flattened from the tree (599 entries, 2026-11-22)
+  regions_shandong.json     the platform region dictionary for Shandong,
+                            verbatim (17 cities / 137 counties)
+  shandong_counties.json    {"济南": ["历下区", ...], ...} derived from it
 
-Until those files are filled in from a scouting pass, only the one
-historically verified qualification is known.
+Both dictionaries were supplied by Hu from the platform on 2026-11-22.
 """
 from __future__ import annotations
 
@@ -34,11 +37,14 @@ PAGE_SIZE = 15
 MAX_PAGES = 30
 DISPLAY_LIMIT = PAGE_SIZE * MAX_PAGES  # 450
 
-# Shandong's 16 prefecture-level cities (public administrative divisions;
-# used as the level-1 traversal grid and as a checklist for scouting).
+# Shandong's cities AS LISTED IN THE PLATFORM'S OWN REGION DICTIONARY
+# (regions_shandong.json): 17 entries. Note the dictionary still lists
+# 莱芜 (371200) even though it was merged into Jinan administratively in
+# 2019 — the platform dictionary governs what its selectors offer, so
+# traversal follows the dictionary, not the current administrative map.
 SHANDONG_CITIES: tuple[str, ...] = (
     "济南", "青岛", "淄博", "枣庄", "东营", "烟台", "潍坊", "济宁",
-    "泰安", "威海", "日照", "临沂", "德州", "聊城", "滨州", "菏泽",
+    "泰安", "威海", "日照", "莱芜", "临沂", "德州", "聊城", "滨州", "菏泽",
 )
 
 # The only qualification verified on the platform so far (2026-11-21 run).
@@ -87,14 +93,32 @@ class QueryCombo:
         }
 
 
-def load_qualifications(path: Path | None = None) -> list[str]:
+def load_qualification_entries(path: Path | None = None) -> list[dict[str, str]]:
+    """Flat qualification entries: [{"name", "code", "category", "group"}].
+
+    Accepts the object form above and the legacy plain-name list form.
+    """
     path = path or (_HERE / "qualifications.json")
     if path.exists():
         value = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(value, list) and value and all(isinstance(v, dict) and v.get("name") for v in value):
+            return [
+                {
+                    "name": str(v["name"]),
+                    "code": str(v.get("code", "")).strip(),
+                    "category": str(v.get("category", "")),
+                    "group": str(v.get("group", "")),
+                }
+                for v in value
+            ]
         if isinstance(value, list) and all(isinstance(v, str) and v for v in value):
-            return list(value)
-        raise ValueError(f"{path} must be a JSON array of qualification names")
-    return list(KNOWN_QUALIFICATIONS)
+            return [{"name": v, "code": "", "category": "", "group": ""} for v in value]
+        raise ValueError(f"{path} must be a JSON array of qualification entries or names")
+    return [{"name": q, "code": "", "category": "", "group": ""} for q in KNOWN_QUALIFICATIONS]
+
+
+def load_qualifications(path: Path | None = None) -> list[str]:
+    return [entry["name"] for entry in load_qualification_entries(path)]
 
 
 def load_counties(path: Path | None = None) -> dict[str, list[str]]:
