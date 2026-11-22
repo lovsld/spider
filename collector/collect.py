@@ -590,6 +590,15 @@ def list_rows(page: Page) -> list[dict[str, str]]:
 
 def expected_region() -> str:
     if CURRENT_COMBO is not None:
+        if CURRENT_COMBO.city:
+            try:
+                try:
+                    from filters import region_fullname
+                except ImportError:
+                    from collector.filters import region_fullname  # type: ignore
+                return region_fullname(CURRENT_COMBO)
+            except Exception:
+                pass
         return CURRENT_COMBO.region_label
     return REGION_NAME
 
@@ -622,8 +631,11 @@ def apply_public_filters(page: Page) -> None:
     """Use the public filter controls. Any verification still stops for a person."""
     require_human_captcha_resolution(page)
     combo = CURRENT_COMBO or QueryCombo(qualification=QUALIFICATION_NAME)
-    print(f"[filter] 资质类别: 建筑业企业；资质名称: {combo.qualification}；企业注册属地: {combo.province} {combo.city} {combo.county}".rstrip())
-    page.locator(".labelInPutRadio span", has_text="建筑业企业").click()
+    print(f"[filter] 资质类别: {combo.ui_category}；资质名称: {combo.qualification}；企业注册属地: {combo.province} {combo.city} {combo.county}".rstrip())
+    category_label = page.locator(".labelInPutRadio span", has_text=combo.ui_category)
+    if category_label.count() == 0:
+        raise RuntimeError(f"平台未提供资质类别「{combo.ui_category}」，已停止该组合。")
+    category_label.first.click()
     pause(page)
     page.locator(".quality-button .popAlert").click()
     dialog = page.locator(".quality-button-dialog")
@@ -762,13 +774,36 @@ def upsert(records: list[dict[str, Any]], record: dict[str, Any]) -> list[dict[s
     return records
 
 
-def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
-    global CURRENT_COMBO
-    CURRENT_COMBO = QueryCombo(
-        qualification=getattr(args, "qualification", QUALIFICATION_NAME) or QUALIFICATION_NAME,
+def resolve_combo(args: argparse.Namespace) -> QueryCombo:
+    """Build the active combo, enriching it with the platform dictionary
+    entry (code + category) for the requested qualification when known."""
+    qualification = getattr(args, "qualification", QUALIFICATION_NAME) or QUALIFICATION_NAME
+    code = getattr(args, "code", "") or ""
+    category = getattr(args, "category", "") or ""
+    if not code:
+        try:
+            try:
+                from filters import load_qualification_entries
+            except ImportError:
+                from collector.filters import load_qualification_entries  # type: ignore
+            for entry in load_qualification_entries():
+                if entry["name"] == qualification:
+                    code, category = entry["code"], entry["category"]
+                    break
+        except Exception:
+            pass
+    return QueryCombo(
+        qualification=qualification,
         city=getattr(args, "city", "") or "",
         county=getattr(args, "county", "") or "",
+        code=code,
+        category=category,
     )
+
+
+def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
+    global CURRENT_COMBO
+    CURRENT_COMBO = resolve_combo(args)
     if sync_playwright is None:
         raise SystemExit("playwright 未安装：先 pip install -r collector/requirements.txt && playwright install chromium")
     pages_seen = 0
@@ -877,14 +912,16 @@ def run_traversal(args: argparse.Namespace, limiter: RateLimiter) -> int:
     data is reported in needs_county_data, not treated as done.
     """
     try:
-        from filters import city_combos, drill_down, load_counties, load_qualifications
+        from filters import drill_down, entry_combos, load_counties, load_qualification_entries
     except ImportError:
-        from collector.filters import city_combos, drill_down, load_counties, load_qualifications  # type: ignore
-    qualifications = load_qualifications()
+        from collector.filters import drill_down, entry_combos, load_counties, load_qualification_entries  # type: ignore
+    entries = load_qualification_entries()
     if args.qualification:
-        qualifications = [q for q in qualifications if q == args.qualification] or [args.qualification]
+        entries = [e for e in entries if e["name"] == args.qualification] or [
+            {"name": args.qualification, "code": "", "category": "", "group": ""}
+        ]
     counties = load_counties()
-    queue: list[QueryCombo] = city_combos(qualifications)
+    queue: list[QueryCombo] = entry_combos(entries, category=getattr(args, "category", "") or "")
     if args.city:
         queue = [c for c in queue if c.city == args.city]
     seen: set[tuple[str, str, str]] = set()
@@ -911,6 +948,7 @@ def run_traversal(args: argparse.Namespace, limiter: RateLimiter) -> int:
         print(f"\n[traverse] {combo.as_dict()} -> {output}")
         combo_args = argparse.Namespace(**vars(args))
         combo_args.qualification, combo_args.city, combo_args.county = combo.qualification, combo.city, combo.county
+        combo_args.code, combo_args.category = combo.code, combo.category
         combo_args.output, combo_args.state = output, state
         collect(combo_args, limiter)
         try:
@@ -938,6 +976,14 @@ def print_plan(args: argparse.Namespace) -> int:
     qualifications = load_qualifications()
     combos = city_combos(qualifications)
     counties = load_counties()
+    category = getattr(args, "category", "") or ""
+    if category:
+        try:
+            from filters import entry_combos, load_qualification_entries
+        except ImportError:
+            from collector.filters import entry_combos, load_qualification_entries  # type: ignore
+        combos = entry_combos(load_qualification_entries(), category=category)
+        qualifications = sorted({c.qualification for c in combos})
     print(f"资质 {len(qualifications)} 个 x 山东 {len(counties)} 地市 = {len(combos)} 个市级组合")
     for q in qualifications:
         print(f"  - {q}")
@@ -959,6 +1005,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--city", default="", help="山东地市，如 济南；默认省级单组合")
     parser.add_argument("--county", default="", help="区县，如 历下区；需同时给 --city")
     parser.add_argument("--traverse", action="store_true", help="遍历全部资质 x 山东各地市（平台字典 17 个），OVERFLOW 自动下钻区县")
+    parser.add_argument("--category", default="", help="只遍历一个资质类别：工程设计/工程勘察/建筑业企业资质/工程监理，或代码前缀 A/B/D/E")
     parser.add_argument("--plan-only", action="store_true", help="只打印遍历计划，不打开浏览器、不采集")
     return parser.parse_args()
 

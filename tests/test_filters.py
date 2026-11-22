@@ -14,6 +14,8 @@ from filters import (  # noqa: E402
     load_counties,
     load_qualification_entries,
     load_qualifications,
+    entry_combos,
+    region_fullname,
 )
 
 
@@ -83,3 +85,28 @@ def test_platform_dictionary_files():
     assert sum(len(v) for v in counties.values()) == 137
     assert counties["济南"][0] == "历下区"
     assert len(city_combos(load_qualifications())) == 599 * 17
+
+
+def test_ui_category_mapping():
+    assert QueryCombo(qualification="x", category="建筑业企业资质").ui_category == "建筑业企业"
+    assert QueryCombo(qualification="x", category="工程设计").ui_category == "工程设计"
+    assert QueryCombo(qualification="x").ui_category == "建筑业企业"  # legacy default
+
+
+def test_entry_combos_carry_code_and_category_and_filter():
+    entries = load_qualification_entries()
+    d = entry_combos(entries, category="D")
+    assert len(d) == 143 * 17
+    assert all(c.category == "建筑业企业资质" and c.code.startswith("D") for c in d)
+    a = entry_combos(entries, category="工程设计")
+    assert len(a) == 396 * 17
+    one = [c for c in d if c.code == "D101A" and c.city == "济南"][0]
+    assert one.qualification == "建筑工程施工总承包一级"
+    assert one.as_dict()["code"] == "D101A"
+
+
+def test_region_fullname_from_platform_dictionary():
+    assert region_fullname(QueryCombo(qualification="x", city="济南")) == "山东省-济南市"
+    assert region_fullname(QueryCombo(qualification="x", city="济南", county="历下区")) == "山东省-济南市-历下区"
+    assert region_fullname(QueryCombo(qualification="x", city="莱芜", county="钢城区")) == "山东省-莱芜市-钢城区"
+    assert region_fullname(QueryCombo(qualification="x")) == "山东省"

@@ -53,12 +53,38 @@ KNOWN_QUALIFICATIONS: tuple[str, ...] = ("建筑工程施工总承包一级",)
 _HERE = Path(__file__).resolve().parent
 
 
+# Dictionary category -> the category label the platform filter UI shows.
+# "建筑业企业" is verified from the original collector; the other three use
+# the dictionary's own top-level names (verify once on the first real run).
+CATEGORY_UI_LABELS: dict[str, str] = {
+    "工程设计": "工程设计",
+    "工程勘察": "工程勘察",
+    "建筑业企业资质": "建筑业企业",
+    "工程监理": "工程监理",
+}
+
+# Category can also be addressed by its dictionary code prefix.
+CATEGORY_CODES: dict[str, str] = {
+    "A": "工程设计",
+    "B": "工程勘察",
+    "D": "建筑业企业资质",
+    "E": "工程监理",
+}
+
+
 @dataclass(frozen=True)
 class QueryCombo:
     qualification: str
     province: str = PROVINCE
     city: str = ""      # "" = whole province (legacy single-combo mode)
     county: str = ""    # "" = whole city
+    code: str = ""      # platform dictionary code, e.g. "D101A"
+    category: str = ""  # dictionary top-level category, e.g. "建筑业企业资质"
+
+    @property
+    def ui_category(self) -> str:
+        """Category label to click in the platform filter UI."""
+        return CATEGORY_UI_LABELS.get(self.category, "建筑业企业")
 
     @property
     def level(self) -> str:
@@ -85,12 +111,17 @@ class QueryCombo:
         return f"mohurd_{self.slug()}.json"
 
     def as_dict(self) -> dict[str, str]:
-        return {
+        out = {
             "qualification": self.qualification,
             "province": self.province,
             "city": self.city,
             "county": self.county,
         }
+        if self.code:
+            out["code"] = self.code
+        if self.category:
+            out["category"] = self.category
+        return out
 
 
 def load_qualification_entries(path: Path | None = None) -> list[dict[str, str]]:
@@ -131,9 +162,68 @@ def load_counties(path: Path | None = None) -> dict[str, list[str]]:
     return {}
 
 
+def entry_combos(
+    entries: list[dict[str, str]],
+    cities: tuple[str, ...] = SHANDONG_CITIES,
+    category: str = "",
+) -> list[QueryCombo]:
+    """Level-1 plan from dictionary entries: qualification x city.
+
+    `category` limits the plan to one dictionary category, given either by
+    its Chinese name ("工程设计") or its code prefix ("A"/"B"/"D"/"E").
+    """
+    wanted = CATEGORY_CODES.get(category.strip().upper(), category.strip())
+    combos: list[QueryCombo] = []
+    for entry in entries:
+        if wanted and entry.get("category") != wanted:
+            continue
+        for city in cities:
+            combos.append(
+                QueryCombo(
+                    qualification=entry["name"],
+                    city=city,
+                    code=entry.get("code", ""),
+                    category=entry.get("category", ""),
+                )
+            )
+    return combos
+
+
 def city_combos(qualifications: list[str], cities: tuple[str, ...] = SHANDONG_CITIES) -> list[QueryCombo]:
     """Level-1 plan: every qualification x every Shandong city."""
     return [QueryCombo(qualification=q, city=c) for q in qualifications for c in cities]
+
+
+def load_region_tree(path: Path | None = None) -> dict:
+    path = path or (_HERE / "regions_shandong.json")
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {}
+
+
+def region_fullname(combo: QueryCombo, tree: dict | None = None) -> str:
+    """Full region label as result rows show it, e.g. 山东省-济南市-历下区.
+
+    Built from the platform region dictionary's own region_fullname
+    values, so county names that repeat across cities (市中区 etc.) and
+    names whose short form lacks a suffix (章丘 vs 章丘市) validate
+    correctly. Falls back to the combo's region_label when the
+    dictionary has no matching entry.
+    """
+    tree = tree if tree is not None else load_region_tree()
+    if not tree:
+        return combo.region_label
+    if not combo.city:
+        return str(tree.get("region_fullname") or combo.province)
+    for city in tree.get("children", []):
+        if city.get("region_name") == combo.city:
+            if not combo.county:
+                return str(city.get("region_fullname") or combo.city)
+            for county in city.get("children", []):
+                if county.get("region_name") == combo.county or county.get("region_fullname", "").endswith(combo.county):
+                    return str(county.get("region_fullname") or combo.county)
+            return str(city.get("region_fullname") or combo.city)
+    return combo.region_label
 
 
 def drill_down(combo: QueryCombo, counties_by_city: dict[str, list[str]]) -> list[QueryCombo]:
@@ -143,7 +233,13 @@ def drill_down(combo: QueryCombo, counties_by_city: dict[str, list[str]]) -> lis
     if combo.level != "city":
         return []
     return [
-        QueryCombo(qualification=combo.qualification, city=combo.city, county=county)
+        QueryCombo(
+            qualification=combo.qualification,
+            city=combo.city,
+            county=county,
+            code=combo.code,
+            category=combo.category,
+        )
         for county in counties_by_city.get(combo.city, [])
     ]
 
