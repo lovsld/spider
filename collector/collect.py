@@ -15,6 +15,7 @@ certificate number and dates from the merged cells above it.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -815,6 +816,12 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
     dedup_skipped = 0
     if dedup_keys:
         print(f"[dedup] 父级组合已完整采集 {len(dedup_keys)} 家，本组合遇到将跳过、不重开详情。")
+    # Refresh mode (P3): list-fingerprint fast path + missing tracking.
+    refresh = bool(getattr(args, "refresh", False))
+    initial_completed = set(completed)
+    refresh_fp: str = ""
+    refresh_rows: list[dict[str, Any]] = []
+    pending_missing: set[str] = set()
     with sync_playwright() as playwright:
         context = open_browser(playwright, args.profile)
         page = context.pages[0] if context.pages else context.new_page()
@@ -823,11 +830,36 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
             page.goto(TARGET_URL, wait_until="commit", timeout=60_000)
             settle(page, "the company search page")
             wait_for_filtered_results(page, args.ready_flag)
+            if refresh:
+                prior_state = read_state(args.state)
+                if prior_state.get("list_fingerprint"):
+                    _scan_pages, refresh_rows = scan_list_pages(page, limiter, args.max_pages)
+                    refresh_fp = list_fingerprint(refresh_rows)
+                    if refresh_fp == prior_state["list_fingerprint"]:
+                        prior_state.update({
+                            "last_checked_at": utc_now(),
+                            "list_fingerprint": refresh_fp,
+                            "refresh_result": "unchanged",
+                        })
+                        atomic_json_write(args.state, prior_state)
+                        print(f"[refresh] 列表指纹未变（{len(refresh_rows)} 家），跳过详情采集。")
+                        return 0
+                    seen_keys = {
+                        company_key({"企业基础信息": row, "企业名称": row.get("企业名称", "")})
+                        for row in refresh_rows
+                    }
+                    pending_missing = initial_completed - seen_keys
+                    print(f"[refresh] 列表有变化：现 {len(refresh_rows)} 家，新出现/变化将采详情，消失 {len(pending_missing)} 家。")
+                    page.goto(TARGET_URL, wait_until="commit", timeout=60_000)
+                    settle(page, "the company search page")
+                    wait_for_filtered_results(page, args.ready_flag)
             for page_number in range(1, args.max_pages + 1):
                 if stop_requested(DATA_DIR, getattr(args, "worker", "") or ""):
                     raise KeyboardInterrupt(f"STOP file present for worker {getattr(args, 'worker', '')}")
                 pages_seen = page_number
                 rows = list_rows(page)
+                if refresh and not refresh_fp:
+                    refresh_rows.extend(rows)
                 print(f"\n[page {page_number}/{args.max_pages}] {len(rows)} companies")
                 for index, seed in enumerate(rows):
                     key = company_key({"企业基础信息": seed, "企业名称": seed.get("企业名称", "")})
@@ -905,7 +937,7 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
     # Overflow is judged on every company the list showed, including
     # dedup-skipped ones — they were displayed by the platform too.
     overflow = is_overflow(pages_seen, len(records) + dedup_skipped, args.max_pages)
-    atomic_json_write(args.state, {
+    final_state: dict[str, Any] = {
         "updated_at_utc": utc_now(),
         "records": len(records),
         "complete": len(completed),
@@ -915,7 +947,30 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
         "pages_seen": pages_seen,
         "overflow": overflow,
         "status": "OVERFLOW" if overflow else "complete",
-    })
+    }
+    if refresh:
+        if not refresh_fp:
+            refresh_fp = list_fingerprint(refresh_rows)
+            seen_keys = {
+                company_key({"企业基础信息": row, "企业名称": row.get("企业名称", "")})
+                for row in refresh_rows
+            }
+            pending_missing = initial_completed - seen_keys
+        prior_state = read_state(args.state)
+        missing_sorted = sorted(pending_missing)
+        final_state.update({
+            "list_fingerprint": refresh_fp,
+            "last_checked_at": utc_now(),
+            "refresh_result": "changed" if prior_state.get("list_fingerprint") else "baseline",
+            "missing_codes": missing_sorted,
+            # missing_since sticks while the same set stays missing.
+            "missing_since": (
+                prior_state.get("missing_since") or utc_now()
+            ) if missing_sorted else "",
+        })
+        if missing_sorted:
+            print(f"[refresh] {len(missing_sorted)} 家此前已采企业本次列表未出现，已记 missing_codes（不删数据）。")
+    atomic_json_write(args.state, final_state)
     if overflow:
         print(f"[overflow] 该组合已跑满 {args.max_pages} 页（平台 450 条上限），结果不完整，必须下钻更细条件，见 docs/COLLECTOR.md。")
     print(f"Saved {len(records)} records to {args.output}")
@@ -1034,6 +1089,35 @@ def print_status(data_dir: Path) -> int:
           f"运行中 {s['running']} / 待跑 {s['pending']}")
     print(f"已采记录 {s['records']} 条（去重跳过 {s['dedup_skipped']} 条）")
     return 0
+
+
+def list_fingerprint(rows: list[dict[str, Any]]) -> str:
+    """Stable hash of what a combo's list pages show (refresh fast-path).
+
+    Built from list-visible fields only, order-insensitive. Equal
+    fingerprint => the platform shows nothing new for this combo, so a
+    refresh can skip every detail page.
+    """
+    lines = sorted(
+        "|".join(
+            str(row.get(field, "") or "")
+            for field in ("统一社会信用代码", "企业名称", "企业法定代表人", "企业注册属地")
+        )
+        for row in rows
+    )
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+
+
+def scan_list_pages(page: Page, limiter: RateLimiter, max_pages: int) -> tuple[int, list[dict[str, Any]]]:
+    """Walk the (already filtered) list without opening any detail."""
+    rows: list[dict[str, Any]] = []
+    pages = 0
+    for page_number in range(1, max_pages + 1):
+        pages = page_number
+        rows.extend(list_rows(page))
+        if page_number == max_pages or not next_list_page(page, limiter):
+            break
+    return pages, rows
 
 
 def completed_keys_from(path: Path) -> set[str]:
@@ -1203,6 +1287,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--level", choices=["county", "city"], default="city", help="遍历粒度：city=按地市筛选、OVERFLOW 下钻区县（默认，因平台确有只登记到市级的企业）；county=直接按区县筛选")
     parser.add_argument("--category", default="", help="只遍历一个资质类别：工程设计/工程勘察/建筑业企业资质/工程监理，或代码前缀 A/B/D/E")
     parser.add_argument("--worker", default="", help="worker 标识（分组并行时区分认领/心跳/STOP 文件）；默认主机名-PID")
+    parser.add_argument("--refresh", action="store_true", help="增量刷新：先比列表指纹，未变跳过详情；变了只采新企业并记录消失企业")
     parser.add_argument("--status", action="store_true", help="只打印全部组合的进度总览（扫 state 文件），不采集")
     parser.add_argument("--plan-only", action="store_true", help="只打印遍历计划，不打开浏览器、不采集")
     return parser.parse_args()

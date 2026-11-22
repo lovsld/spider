@@ -76,3 +76,10 @@ python collector/collect.py --traverse --city 青岛 --profile playwright_profil
 - 重采的记录走现有 `import_db` 即可：`content_hash` 未变 → 只 bump `last_seen_at`；变了 → 旧行 `is_current=false, valid_to=now`，新行插入，历史版本完整保留；`crawl_snapshot` 按 (信用代码, 采集时间) 存原始 payload，可回溯任何一次采集的原文。
 - 子表同理（`sync_children` 按 business_key + hash 做同样的开关版
 ...[truncated 1039 chars]
+## 6. 实施状态（2026-11-22，Hu 指示 P1/P2/P3 逐个做）
+
+- **P1a 已落地**（284c1b0b）：`web/ingest/schema_spec.py` 从 schema.sql 派生期望结构；`import_db.py --check-schema / --migrate`；正式导入先验结构、不过拒绝；记录结构校验隔离不合格记录（counts.invalid）。schema.sql 增 `schema_meta` 表，SCHEMA_VERSION=1。
+- **P1b 已落地**（99bf2bdf）：组合认领 `claimed_by/claimed_ts/heartbeat_ts`（TTL 1800 秒，过期可接手）、`<state>.lock` 独占锁、STOP / STOP.<worker> 优雅停止、`--status` 总览。
+- **P2 已落地**（3559f93c）：`--worker` 自动隔离 profile（`playwright_profile_<worker>`）与 ready-flag（`start_collect.<worker>.flag`），显式参数优先；分组启动方式见 collector/README。一点修正：验证码现行逻辑是组合内等人工处理（原采集设计），未改成 needs_human 跳过——分组时一个 worker 卡验证码只卡自己分片，其余 worker 不受影响；若要「跳过该组合继续下一个」需另行确认改等待逻辑。
+- **P3 已落地**：`--refresh` 列表指纹快速路径（未变跳过详情并更新 last_checked_at）、变化时记录 `missing_codes/missing_since`（只标记不删）、`filters.diff_qualifications / diff_counties` 字典对比。详情内部变化的兜底仍是不带 --refresh 的全量重采 + 入库 hash 版本化（已具备）。
+- 测试：全量 24/24（filters / dedup+指纹 / claims / schema_spec）。全部为代码与单测验证，采集未实跑。

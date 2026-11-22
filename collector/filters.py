@@ -225,6 +225,42 @@ def county_combos(
     return combos
 
 
+def diff_qualifications(
+    old: list[dict[str, str]], new: list[dict[str, str]]
+) -> dict[str, list[str]]:
+    """Diff two flat qualification entry lists by code (refresh aid).
+
+    When Hu supplies a newer platform dictionary, run this to see which
+    qualifications were added/removed/renamed before swapping the file:
+    added ones join the traversal plan; removed ones simply stop being
+    traversed (their collected data stays).
+    """
+    old_by_code = {e["code"]: e["name"] for e in old if e.get("code")}
+    new_by_code = {e["code"]: e["name"] for e in new if e.get("code")}
+    return {
+        "added": sorted(f"{c} {new_by_code[c]}" for c in new_by_code.keys() - old_by_code.keys()),
+        "removed": sorted(f"{c} {old_by_code[c]}" for c in old_by_code.keys() - new_by_code.keys()),
+        "renamed": sorted(
+            f"{c} {old_by_code[c]} -> {new_by_code[c]}"
+            for c in old_by_code.keys() & new_by_code.keys()
+            if old_by_code[c] != new_by_code[c]
+        ),
+    }
+
+
+def diff_counties(
+    old: dict[str, list[str]], new: dict[str, list[str]]
+) -> dict[str, list[str]]:
+    """Diff two city -> counties mappings (refresh aid, same idea)."""
+    def flat(mapping: dict[str, list[str]]) -> set[str]:
+        return {f"{city}/{county}" for city, counties in mapping.items() for county in counties}
+
+    return {
+        "added": sorted(flat(new) - flat(old)),
+        "removed": sorted(flat(old) - flat(new)),
+    }
+
+
 def load_region_tree(path: Path | None = None) -> dict:
     path = path or (_HERE / "regions_shandong.json")
     if path.exists():

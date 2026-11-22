@@ -61,6 +61,17 @@ python collector/collect.py --status          # 随时看总进度（扫全部 s
 touch collector/data/STOP.jinan-1             # 优雅停掉 jinan-1（收尾当前组合后退出）
 ```
 
+## 运行：增量刷新（平台数据更新后）
+
+```bash
+python collector/collect.py --traverse --refresh   # 先比列表指纹：未变的组合跳过详情，只采新企业
+python web/ingest/import_db.py --check-schema      # 入库前先验数据库结构（导入时也会自动验，不过拒绝导入）
+python web/ingest/import_db.py --migrate           # 首次/结构变更时执行 schema.sql 并登记版本
+python web/ingest/import_db.py --data-dir collector/data  # 结构校验通过后才导入；记录结构不合格的会被隔离计数
+```
+
+刷新规则：指纹变了的组合记录 `missing_codes`（此前采过、本次列表没出现的企业，只标记不删）；详情内部的变化靠周期性不带 `--refresh` 的全量重采 + 入库 hash 版本化兜底。平台字典更新时先用 `filters.diff_qualifications / diff_counties` 对比新旧再换文件。
+
 ## 其他
 
 - 进入详情页、切换栏目以及每次自动操作之间等待 0.5～0.8 秒。

@@ -124,3 +124,14 @@ def test_county_combos_are_disjoint_and_complete():
     assert len(d) == 143 * 137
     one = [c for c in combos if c.code == "D101A" and c.county == "历下区"][0]
     assert one.city == "济南" and one.level == "county"
+
+
+def test_dictionary_diffs():
+    from filters import diff_counties, diff_qualifications
+
+    old = [{"name": "甲级", "code": "X1"}, {"name": "乙级", "code": "X2"}]
+    new = [{"name": "甲级", "code": "X1"}, {"name": "乙级改", "code": "X2"}, {"name": "丙级", "code": "X3"}]
+    d = diff_qualifications(old, new)
+    assert d["added"] == ["X3 丙级"] and d["removed"] == [] and d["renamed"] == ["X2 乙级 -> 乙级改"]
+    dc = diff_counties({"济南": ["历下区"]}, {"济南": ["历下区", "市中区"]})
+    assert dc == {"added": ["济南/市中区"], "removed": []}
