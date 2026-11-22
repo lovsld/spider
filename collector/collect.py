@@ -1208,8 +1208,21 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def apply_worker_isolation(args: argparse.Namespace) -> argparse.Namespace:
+    """Grouped parallel runs: a named worker gets its own browser
+    profile directory and its own ready-flag file (both would otherwise
+    collide between processes). Explicit --profile/--ready-flag win."""
+    worker = getattr(args, "worker", "") or ""
+    if worker:
+        if args.profile == DEFAULT_PROFILE:
+            args.profile = Path(f"{DEFAULT_PROFILE}_{worker}")
+        if args.ready_flag == Path("start_collect.flag"):
+            args.ready_flag = Path(f"start_collect.{worker}.flag")
+    return args
+
+
 def main() -> int:
-    args = parse_args()
+    args = apply_worker_isolation(parse_args())
     if args.max_pages < 1:
         raise SystemExit("--max-pages must be positive")
     if args.status:

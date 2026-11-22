@@ -54,3 +54,24 @@ def test_stop_requested_and_status_summary():
         s = collect_mod.summarize_states(data, now_ts=now)
         assert s == {"combos": 4, "complete": 1, "overflow": 1, "running": 1,
                      "pending": 1, "records": 460, "dedup_skipped": 2}
+
+
+def test_worker_isolation_paths():
+    import argparse
+
+    args = argparse.Namespace(
+        worker="jinan-1",
+        profile=collect_mod.DEFAULT_PROFILE,
+        ready_flag=Path("start_collect.flag"),
+    )
+    out = collect_mod.apply_worker_isolation(args)
+    assert out.profile.name == f"playwright_profile_jinan-1"
+    assert out.ready_flag == Path("start_collect.jinan-1.flag")
+    args2 = argparse.Namespace(
+        worker="jinan-1",
+        profile=Path("/tmp/custom-profile"),
+        ready_flag=Path("/tmp/custom.flag"),
+    )
+    out2 = collect_mod.apply_worker_isolation(args2)
+    assert out2.profile == Path("/tmp/custom-profile")  # explicit wins
+    assert out2.ready_flag == Path("/tmp/custom.flag")

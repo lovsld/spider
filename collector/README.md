@@ -50,6 +50,17 @@ python collector/collect.py --traverse --level county   # 直接按区县筛（�
 - 平台单组合最多展示 30 页 × 15 条 = **450 条**。跑满 30 页的组合 state 会标记 `"status": "OVERFLOW"`，**不算采全**；市级 OVERFLOW 自动下钻区县，区县级仍 OVERFLOW 打印 `[overflow-county]` 留人工决定，不静默截断。
 - 已 `complete` 的组合再次遍历会跳过；中断重跑按各组合 state 断点续跑。
 
+## 运行：分组并行（多 worker）
+
+按地市分组，每组一个进程并行跑（建议同时 ≤4 个）。每个 worker 用 `--worker` 命名后自动隔离：独立浏览器 profile（`playwright_profile_<worker>`）、独立 ready-flag、独立 STOP 文件；组合靠认领+心跳+锁防撞车（见 `docs/COLLECTION_DESIGN.md`）。
+
+```bash
+python collector/collect.py --traverse --city 济南 --worker jinan-1
+python collector/collect.py --traverse --city 青岛 --worker qingdao-1
+python collector/collect.py --status          # 随时看总进度（扫全部 state）
+touch collector/data/STOP.jinan-1             # 优雅停掉 jinan-1（收尾当前组合后退出）
+```
+
 ## 其他
 
 - 进入详情页、切换栏目以及每次自动操作之间等待 0.5～0.8 秒。
