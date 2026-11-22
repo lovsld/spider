@@ -824,6 +824,8 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
             settle(page, "the company search page")
             wait_for_filtered_results(page, args.ready_flag)
             for page_number in range(1, args.max_pages + 1):
+                if stop_requested(DATA_DIR, getattr(args, "worker", "") or ""):
+                    raise KeyboardInterrupt(f"STOP file present for worker {getattr(args, 'worker', '')}")
                 pages_seen = page_number
                 rows = list_rows(page)
                 print(f"\n[page {page_number}/{args.max_pages}] {len(rows)} companies")
@@ -858,6 +860,15 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
                     if record_is_complete(record):
                         completed.add(company_key(record))
                     atomic_json_write(args.output, records)
+                    claim_fields = {}
+                    if getattr(args, "worker", ""):
+                        import time as _time
+
+                        claim_fields = {
+                            "claimed_by": args.worker,
+                            "heartbeat_at": utc_now(),
+                            "heartbeat_ts": _time.time(),
+                        }
                     atomic_json_write(args.state, {
                         "updated_at_utc": utc_now(),
                         "records": len(records),
@@ -865,6 +876,7 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
                         "last_company": record.get("company_name"),
                         "source_query": CURRENT_COMBO.as_dict() if CURRENT_COMBO else {},
                         "pages_seen": pages_seen,
+                        **claim_fields,
                     })
                     info = record["企业基础信息"]
                     print(
@@ -916,6 +928,114 @@ def combo_paths(combo: QueryCombo) -> tuple[Path, Path]:
     return output, DATA_DIR / (Path(name).stem + ".state.json")
 
 
+CLAIM_TTL_SECONDS = 1800  # a claim/heartbeat older than this is stale
+
+
+def read_state(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        return value if isinstance(value, dict) else {}
+    except Exception:
+        return {}
+
+
+def claim_is_fresh(state: dict[str, Any], now_ts: float | None = None) -> bool:
+    """True when another worker holds a live claim on this combo."""
+    import time as _time
+
+    now = now_ts if now_ts is not None else _time.time()
+    heartbeat = state.get("heartbeat_ts") or state.get("claimed_ts") or 0
+    return bool(state.get("claimed_by")) and (now - float(heartbeat)) < CLAIM_TTL_SECONDS
+
+
+def try_claim(state_path: Path, worker: str, now_ts: float | None = None) -> bool:
+    """Claim a combo for `worker` in its state file. False if a live
+    claim by someone else exists. Preserves all other state fields."""
+    import time as _time
+
+    now = now_ts if now_ts is not None else _time.time()
+    state = read_state(state_path)
+    if claim_is_fresh(state, now) and state.get("claimed_by") != worker:
+        return False
+    state.update({
+        "claimed_by": worker,
+        "claimed_at": utc_now(),
+        "claimed_ts": now,
+        "heartbeat_at": utc_now(),
+        "heartbeat_ts": now,
+    })
+    atomic_json_write(state_path, state)
+    return True
+
+
+def acquire_combo_lock(state_path: Path, ttl: int = CLAIM_TTL_SECONDS) -> Path | None:
+    """Create <state>.lock exclusively; steal it when older than ttl."""
+    import time as _time
+
+    lock = state_path.with_suffix(state_path.suffix + ".lock")
+    for _ in range(2):
+        try:
+            fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, f"{os.getpid()} {_time.time()}".encode())
+            os.close(fd)
+            return lock
+        except FileExistsError:
+            try:
+                if _time.time() - lock.stat().st_mtime < ttl:
+                    return None
+                lock.unlink()
+            except FileNotFoundError:
+                continue
+    return None
+
+
+def release_combo_lock(lock: Path | None) -> None:
+    if lock is not None:
+        try:
+            lock.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def stop_requested(data_dir: Path, worker: str = "") -> bool:
+    if (data_dir / "STOP").exists():
+        return True
+    return bool(worker) and (data_dir / f"STOP.{worker}").exists()
+
+
+def summarize_states(data_dir: Path, now_ts: float | None = None) -> dict[str, Any]:
+    """Aggregate every combo state file into a progress summary."""
+    import time as _time
+
+    now = now_ts if now_ts is not None else _time.time()
+    summary: dict[str, Any] = {
+        "combos": 0, "complete": 0, "overflow": 0, "running": 0,
+        "pending": 0, "records": 0, "dedup_skipped": 0,
+    }
+    for path in sorted(data_dir.glob("*.state.json")):
+        state = read_state(path)
+        summary["combos"] += 1
+        summary["records"] += int(state.get("records") or 0)
+        summary["dedup_skipped"] += int(state.get("dedup_skipped") or 0)
+        if state.get("status") == "complete":
+            summary["complete"] += 1
+        elif state.get("status") == "OVERFLOW":
+            summary["overflow"] += 1
+        elif claim_is_fresh(state, now):
+            summary["running"] += 1
+        else:
+            summary["pending"] += 1
+    return summary
+
+
+def print_status(data_dir: Path) -> int:
+    s = summarize_states(data_dir)
+    print(f"组合总数 {s['combos']}：complete {s['complete']} / OVERFLOW {s['overflow']} / "
+          f"运行中 {s['running']} / 待跑 {s['pending']}")
+    print(f"已采记录 {s['records']} 条（去重跳过 {s['dedup_skipped']} 条）")
+    return 0
+
+
 def completed_keys_from(path: Path) -> set[str]:
     """Company keys of COMPLETE records in an output file (dedup source).
 
@@ -957,8 +1077,12 @@ def run_traversal(args: argparse.Namespace, limiter: RateLimiter) -> int:
         queue = [c for c in queue if c.city == args.city]
     if getattr(args, "county", ""):
         queue = [c for c in queue if c.county == args.county]
+    worker = getattr(args, "worker", "") or f"{os.uname().nodename}-{os.getpid()}"
     seen: set[tuple[str, str, str]] = set()
     while queue:
+        if stop_requested(DATA_DIR, worker):
+            print(f"[stop] 收到停止信号（STOP 文件），worker {worker} 收尾退出。已完成组合均已落盘。")
+            break
         combo = queue.pop(0)
         key = (combo.qualification, combo.city, combo.county)
         if key in seen:
@@ -981,8 +1105,21 @@ def run_traversal(args: argparse.Namespace, limiter: RateLimiter) -> int:
             if prior.get("overflow") and combo.level == "county":
                 print(f"[overflow-county] {combo.as_dict()} 此前已标记 OVERFLOW，跳过重跑，待人工决定。")
                 continue
+        prior_state = read_state(state)
+        if claim_is_fresh(prior_state) and prior_state.get("claimed_by") != worker:
+            print(f"[claimed] {combo.as_dict()} 已被 {prior_state.get('claimed_by')} 认领且心跳新鲜，跳过。")
+            continue
+        lock = acquire_combo_lock(state)
+        if lock is None:
+            print(f"[locked] {combo.as_dict()} 已被其他 worker 锁定，跳过。")
+            continue
+        if not try_claim(state, worker):
+            release_combo_lock(lock)
+            print(f"[claimed] {combo.as_dict()} 认领失败（已被认领），跳过。")
+            continue
         print(f"\n[traverse] {combo.as_dict()} -> {output}")
         combo_args = argparse.Namespace(**vars(args))
+        combo_args.worker = worker
         combo_args.qualification, combo_args.city, combo_args.county = combo.qualification, combo.city, combo.county
         combo_args.code, combo_args.category = combo.code, combo.category
         combo_args.output, combo_args.state = output, state
@@ -999,7 +1136,10 @@ def run_traversal(args: argparse.Namespace, limiter: RateLimiter) -> int:
             combo_args.dedup_keys = completed_keys_from(parent_output)
             if combo_args.dedup_keys:
                 print(f"[dedup] 父级市级组合已采 {len(combo_args.dedup_keys)} 家完整的，本组合将去重跳过。")
-        collect(combo_args, limiter)
+        try:
+            collect(combo_args, limiter)
+        finally:
+            release_combo_lock(lock)
         try:
             after = json.loads(state.read_text(encoding="utf-8"))
         except Exception:
@@ -1062,6 +1202,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--traverse", action="store_true", help="遍历全部资质 x 山东各地市，OVERFLOW 自动下钻区县（下钻时采集去重，不重复采父级已采企业）")
     parser.add_argument("--level", choices=["county", "city"], default="city", help="遍历粒度：city=按地市筛选、OVERFLOW 下钻区县（默认，因平台确有只登记到市级的企业）；county=直接按区县筛选")
     parser.add_argument("--category", default="", help="只遍历一个资质类别：工程设计/工程勘察/建筑业企业资质/工程监理，或代码前缀 A/B/D/E")
+    parser.add_argument("--worker", default="", help="worker 标识（分组并行时区分认领/心跳/STOP 文件）；默认主机名-PID")
+    parser.add_argument("--status", action="store_true", help="只打印全部组合的进度总览（扫 state 文件），不采集")
     parser.add_argument("--plan-only", action="store_true", help="只打印遍历计划，不打开浏览器、不采集")
     return parser.parse_args()
 
@@ -1070,6 +1212,8 @@ def main() -> int:
     args = parse_args()
     if args.max_pages < 1:
         raise SystemExit("--max-pages must be positive")
+    if args.status:
+        return print_status(DATA_DIR)
     if args.plan_only:
         return print_plan(args)
     if args.traverse:
