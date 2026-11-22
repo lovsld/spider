@@ -34,19 +34,20 @@ python collector/collect.py --qualification <资质原文> --city 济南 --count
 ## 运行：全量遍历（山东）
 
 ```bash
-python collector/collect.py --plan-only              # 先看计划：599 资质 x 137 区县，不打开浏览器
+python collector/collect.py --plan-only              # 先看计划：599 资质 x 17 地市，不打开浏览器
 python collector/collect.py --plan-only --category D # 只看建筑业企业资质的计划
-python collector/collect.py --traverse               # 正式遍历（默认按区县：82,063 个区县级组合）
+python collector/collect.py --traverse               # 正式遍历（市级 10,183 组合，OVERFLOW 下钻区县并去重）
 python collector/collect.py --traverse --category 工程设计  # 只遍历一个类别（或用代码前缀 A/B/D/E）
-python collector/collect.py --traverse --level city  # 旧市级模式（备查市直登记企业，日常不用）
+python collector/collect.py --traverse --level county   # 直接按区县筛（会漏只登记到市级的企业，慎用）
 ```
 
 遍历规则（详见 `docs/COLLECTOR.md`）：
 
-- 组合 = 资质（`collector/qualifications.json`，平台字典 599 条，带代码与类别）× 山东 137 个区县（平台区划字典，17 市含莱芜）。区县按注册属地互不重叠，同一企业对同一资质最多采一次，不重复。
+- 组合 = 资质（`collector/qualifications.json`，平台字典 599 条，带代码与类别）× 山东 17 地市（平台区划字典，含莱芜）；市级满 450 下钻到该市的区县。
+- 下钻时**采集去重**：区县组合会跳过父级市级组合已完整采集的企业（`[skip-dedup]`），不重开详情、不重复写文件。
 - 每个组合按其类别点平台的资质类别（建筑业企业资质 → 界面「建筑业企业」），再在对话框里按名称选资质；每条记录的 `source_query` 带资质代码与类别。
 - 结果属地校验用区划字典的全名（如 `山东省-济南市-历下区`），避免同名区县（市中区等）跨市误判。
-- 平台单组合最多展示 30 页 × 15 条 = **450 条**。区县级组合跑满 30 页 state 会标记 `"status": "OVERFLOW"`，**不算采全**，打印 `[overflow-county]` 留人工决定，不静默截断。（市级模式下 OVERFLOW 才下钻区县。）
+- 平台单组合最多展示 30 页 × 15 条 = **450 条**。跑满 30 页的组合 state 会标记 `"status": "OVERFLOW"`，**不算采全**；市级 OVERFLOW 自动下钻区县，区县级仍 OVERFLOW 打印 `[overflow-county]` 留人工决定，不静默截断。
 - 已 `complete` 的组合再次遍历会跳过；中断重跑按各组合 state 断点续跑。
 
 ## 其他

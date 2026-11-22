@@ -809,6 +809,12 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
     pages_seen = 0
     records = read_json_list(args.output)
     completed = {company_key(item) for item in records if record_is_complete(item)}
+    # Collection-time dedup: keys already collected in full by a parent
+    # combo (set by run_traversal for drill-down county combos).
+    dedup_keys: set[str] = set(getattr(args, "dedup_keys", None) or set())
+    dedup_skipped = 0
+    if dedup_keys:
+        print(f"[dedup] 父级组合已完整采集 {len(dedup_keys)} 家，本组合遇到将跳过、不重开详情。")
     with sync_playwright() as playwright:
         context = open_browser(playwright, args.profile)
         page = context.pages[0] if context.pages else context.new_page()
@@ -826,6 +832,10 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
                     name = seed.get("企业名称", "")
                     if key in completed:
                         print(f"[skip] {name}")
+                        continue
+                    if key in dedup_keys:
+                        dedup_skipped += 1
+                        print(f"[skip-dedup] {name}（父级已采，去重跳过）")
                         continue
                     print(f"[collect] {name}")
                     limiter.wait(f"opening company detail: {name}")
@@ -880,11 +890,14 @@ def collect(args: argparse.Namespace, limiter: RateLimiter) -> int:
         from filters import is_overflow
     except ImportError:
         from collector.filters import is_overflow  # type: ignore
-    overflow = is_overflow(pages_seen, len(records), args.max_pages)
+    # Overflow is judged on every company the list showed, including
+    # dedup-skipped ones — they were displayed by the platform too.
+    overflow = is_overflow(pages_seen, len(records) + dedup_skipped, args.max_pages)
     atomic_json_write(args.state, {
         "updated_at_utc": utc_now(),
         "records": len(records),
         "complete": len(completed),
+        "dedup_skipped": dedup_skipped,
         "last_company": records[-1].get("company_name") if records else None,
         "source_query": CURRENT_COMBO.as_dict() if CURRENT_COMBO else {},
         "pages_seen": pages_seen,
@@ -901,6 +914,17 @@ def combo_paths(combo: QueryCombo) -> tuple[Path, Path]:
     name = combo.output_name()
     output = DATA_DIR / name
     return output, DATA_DIR / (Path(name).stem + ".state.json")
+
+
+def completed_keys_from(path: Path) -> set[str]:
+    """Company keys of COMPLETE records in an output file (dedup source).
+
+    Used at collection time: a drill-down county combo skips companies
+    the parent city combo already collected in full, so no detail page
+    is opened twice and the record is not written into a second file
+    (ingest unions all files and dedupes by credit code anyway).
+    """
+    return {company_key(item) for item in read_json_list(path) if record_is_complete(item)}
 
 
 def run_traversal(args: argparse.Namespace, limiter: RateLimiter) -> int:
@@ -922,14 +946,13 @@ def run_traversal(args: argparse.Namespace, limiter: RateLimiter) -> int:
         ]
     counties = load_counties()
     category = getattr(args, "category", "") or ""
-    if (getattr(args, "level", "county") or "county") == "city":
-        queue: list[QueryCombo] = entry_combos(entries, category=category)
+    if (getattr(args, "level", "city") or "city") == "county":
+        # Direct county-level filtering (opt-in): county combos are
+        # disjoint, but companies registered only at city level would
+        # be missed — Hu confirmed those exist, so city is the default.
+        queue: list[QueryCombo] = county_combos(entries, counties, category=category)
     else:
-        # Default: direct county-level filtering. County combos are
-        # disjoint by registered region, so nothing is collected twice
-        # (the old city-first plan re-scraped an OVERFLOW city's records
-        # again in its county drill-down runs).
-        queue = county_combos(entries, counties, category=category)
+        queue = entry_combos(entries, category=category)
     if args.city:
         queue = [c for c in queue if c.city == args.city]
     if getattr(args, "county", ""):
@@ -963,6 +986,19 @@ def run_traversal(args: argparse.Namespace, limiter: RateLimiter) -> int:
         combo_args.qualification, combo_args.city, combo_args.county = combo.qualification, combo.city, combo.county
         combo_args.code, combo_args.category = combo.code, combo.category
         combo_args.output, combo_args.state = output, state
+        combo_args.dedup_keys = set()
+        if combo.level == "county":
+            # Collection-time dedup: skip companies the parent city
+            # combo already collected in full (its truncated OVERFLOW
+            # run) — do not reopen their detail pages.
+            parent = QueryCombo(
+                qualification=combo.qualification, city=combo.city,
+                code=combo.code, category=combo.category,
+            )
+            parent_output, _ = combo_paths(parent)
+            combo_args.dedup_keys = completed_keys_from(parent_output)
+            if combo_args.dedup_keys:
+                print(f"[dedup] 父级市级组合已采 {len(combo_args.dedup_keys)} 家完整的，本组合将去重跳过。")
         collect(combo_args, limiter)
         try:
             after = json.loads(state.read_text(encoding="utf-8"))
@@ -988,7 +1024,7 @@ def print_plan(args: argparse.Namespace) -> int:
         from collector.filters import city_combos, load_counties, load_qualifications  # type: ignore
     counties = load_counties()
     category = getattr(args, "category", "") or ""
-    level = getattr(args, "level", "county") or "county"
+    level = getattr(args, "level", "city") or "city"
     try:
         from filters import county_combos, entry_combos, load_qualification_entries
     except ImportError:
@@ -1023,8 +1059,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--qualification", default="", help="资质名称（原文）；默认沿用历史单组合")
     parser.add_argument("--city", default="", help="山东地市，如 济南；默认省级单组合")
     parser.add_argument("--county", default="", help="区县，如 历下区；需同时给 --city")
-    parser.add_argument("--traverse", action="store_true", help="遍历全部资质（默认按区县筛选，组合互不重叠不重复采集）")
-    parser.add_argument("--level", choices=["county", "city"], default="county", help="遍历粒度：county=直接按区县筛选（默认）；city=按地市筛选、OVERFLOW 下钻区县（旧方案，备查市直登记企业）")
+    parser.add_argument("--traverse", action="store_true", help="遍历全部资质 x 山东各地市，OVERFLOW 自动下钻区县（下钻时采集去重，不重复采父级已采企业）")
+    parser.add_argument("--level", choices=["county", "city"], default="city", help="遍历粒度：city=按地市筛选、OVERFLOW 下钻区县（默认，因平台确有只登记到市级的企业）；county=直接按区县筛选")
     parser.add_argument("--category", default="", help="只遍历一个资质类别：工程设计/工程勘察/建筑业企业资质/工程监理，或代码前缀 A/B/D/E")
     parser.add_argument("--plan-only", action="store_true", help="只打印遍历计划，不打开浏览器、不采集")
     return parser.parse_args()
