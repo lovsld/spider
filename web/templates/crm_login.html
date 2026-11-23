@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>登录 · 资质到期线索系统</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+<main style="max-width:360px;margin:10vh auto;">
+  <h1>资质到期线索系统</h1>
+  {% if error %}<p style="color:#b00;">{{ error }}</p>{% endif %}
+  <form method="post" action="/crm/login">
+    <p><label>用户名<br><input name="username" required style="width:100%;"></label></p>
+    <p><label>密码<br><input name="password" type="password" required style="width:100%;"></label></p>
+    <p><button type="submit" style="width:100%;">登录</button></p>
+  </form>
+</main>
+</body>
+</html>

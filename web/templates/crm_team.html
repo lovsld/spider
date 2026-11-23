@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>团队总览 · 线索系统</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+<header style="display:flex;gap:16px;align-items:center;">
+  <strong>线索系统</strong>
+  <nav style="display:flex;gap:12px;">
+    <a href="/crm/today">今日待办</a>
+    <a href="/crm/pool">公海接单</a>
+    <a href="/crm/mine">我的线索</a>
+    <a href="/crm/team">团队</a>
+    {% if user.role == 'admin' %}<a href="/crm/admin">后台</a>{% endif %}
+    <a href="/crm/logout">退出（{{ user.display_name }}）</a>
+  </nav>
+</header>
+<main>
+  <h1>团队总览</h1>
+  <h2>成员</h2>
+  <table>
+    <thead><tr><th>成员</th><th>持有中</th><th>成交（累计）</th><th>近30天联系次数</th></tr></thead>
+    <tbody>
+    {% for m in members %}
+      <tr><td>{{ m.display_name }}（{{ m.username }}）</td><td>{{ m.held }}</td><td>{{ m.won }}</td><td>{{ m.contacts30 }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <h2>线索池状态</h2>
+  <table>
+    <thead><tr><th>状态</th><th>数量</th></tr></thead>
+    <tbody>
+    {% for s in lead_stats %}<tr><td>{{ s.status }}</td><td>{{ s.n }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <h2>近 30 天通话结果分布</h2>
+  <table>
+    <thead><tr><th>结果</th><th>次数</th></tr></thead>
+    <tbody>
+    {% for o in outcomes %}<tr><td>{{ outcome_labels.get(o.outcome, o.outcome) }}</td><td>{{ o.n }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

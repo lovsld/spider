@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>公海接单 · 线索系统</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+<header style="display:flex;gap:16px;align-items:center;">
+  <strong>线索系统</strong>
+  <nav style="display:flex;gap:12px;">
+    <a href="/crm/today">今日待办</a>
+    <a href="/crm/pool">公海接单</a>
+    <a href="/crm/mine">我的线索</a>
+    {% if user.role in ('leader', 'admin') %}<a href="/crm/team">团队</a>{% endif %}
+    {% if user.role == 'admin' %}<a href="/crm/admin">后台</a>{% endif %}
+    <a href="/crm/logout">退出（{{ user.display_name }}）</a>
+  </nav>
+</header>
+<main>
+  <h1>公海（可接单 {{ total }} 条{% if total > leads|length %}，显示前 {{ leads|length }} 条{% endif %}）</h1>
+  {% if msg %}<p style="color:#060;">{{ msg }}</p>{% endif %}
+  <form method="get" action="/crm/pool" style="display:flex;gap:8px;flex-wrap:wrap;">
+    <input name="keyword" placeholder="企业名称" value="{{ filters.keyword }}">
+    <input name="city" placeholder="地市（如 济南）" value="{{ filters.city }}">
+    <select name="category">
+      <option value="">全部类别</option>
+      {% for c in categories %}<option value="{{ c }}" {% if filters.category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+    <select name="urgency">
+      <option value="">全部紧迫度</option>
+      {% for k, v in urgency_labels.items() %}<option value="{{ k }}" {% if filters.urgency == k %}selected{% endif %}>{{ v }}</option>{% endfor %}
+    </select>
+    <select name="has_phone">
+      <option value="">电话不限</option>
+      <option value="1" {% if filters.has_phone == '1' %}selected{% endif %}>有可用号码</option>
+      <option value="0" {% if filters.has_phone == '0' %}selected{% endif %}>暂无号码</option>
+    </select>
+    <button type="submit">筛选</button>
+  </form>
+
+  <form method="post" action="/crm/claim">
+    <input type="hidden" name="back" value="/crm/pool">
+    <table>
+      <thead><tr><th></th><th>企业</th><th>属地</th><th>资质</th><th>到期</th><th>紧迫</th><th>可用号码</th><th>标记</th></tr></thead>
+      <tbody>
+      {% for l in leads %}
+        <tr>
+          <td><input type="checkbox" name="lead_ids" value="{{ l.id }}"></td>
+          <td><a href="/crm/company/{{ l.credit_code }}">{{ l.company_name }}</a></td>
+          <td>{{ l.region }}</td>
+          <td>{{ l.qualification_name }}</td>
+          <td>{{ l.expires_on }}</td>
+          <td>{{ urgency_labels.get(l.urgency, l.urgency) }}</td>
+          <td>{{ l.phone_count }}</td>
+          <td>{% if l.prior_owner_id %}老客户{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p><button type="submit">接单所选</button> <span>持有上限见后台配置；老客户在优先期内只有原成交人可接。</span></p>
+  </form>
+</main>
+</body>
+</html>

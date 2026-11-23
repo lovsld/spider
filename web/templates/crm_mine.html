@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>我的线索 · 线索系统</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+<header style="display:flex;gap:16px;align-items:center;">
+  <strong>线索系统</strong>
+  <nav style="display:flex;gap:12px;">
+    <a href="/crm/today">今日待办</a>
+    <a href="/crm/pool">公海接单</a>
+    <a href="/crm/mine">我的线索</a>
+    {% if user.role in ('leader', 'admin') %}<a href="/crm/team">团队</a>{% endif %}
+    {% if user.role == 'admin' %}<a href="/crm/admin">后台</a>{% endif %}
+    <a href="/crm/logout">退出（{{ user.display_name }}）</a>
+  </nav>
+</header>
+<main>
+  <h1>我的线索（{{ leads|length }} 条持有中）</h1>
+  <table>
+    <thead><tr><th>企业</th><th>资质</th><th>到期</th><th>紧迫</th><th>状态</th><th>下次跟进</th><th></th><th></th></tr></thead>
+    <tbody>
+    {% for l in leads %}
+      <tr>
+        <td>{{ l.company_name }}</td>
+        <td>{{ l.qualification_name }}</td>
+        <td>{{ l.expires_on }}</td>
+        <td>{{ urgency_labels.get(l.urgency, l.urgency) }}</td>
+        <td>{{ '跟进中' if l.status == 'following' else '已接单' }}</td>
+        <td>{{ l.next_follow_at or '' }}</td>
+        <td><a href="/crm/company/{{ l.credit_code }}">去拨打</a></td>
+        <td>
+          <form method="post" action="/crm/lead/{{ l.id }}/release" onsubmit="return confirm('释放回公海？');">
+            <input type="hidden" name="back" value="/crm/mine">
+            <button type="submit">释放</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</main>
+</body>
+</html>

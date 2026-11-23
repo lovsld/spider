@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>后台 · 线索系统</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+<header style="display:flex;gap:16px;align-items:center;">
+  <strong>线索系统</strong>
+  <nav style="display:flex;gap:12px;">
+    <a href="/crm/today">今日待办</a>
+    <a href="/crm/pool">公海接单</a>
+    <a href="/crm/mine">我的线索</a>
+    <a href="/crm/team">团队</a>
+    <a href="/crm/admin">后台</a>
+    <a href="/crm/logout">退出（{{ user.display_name }}）</a>
+  </nav>
+</header>
+<main>
+  <h1>后台管理</h1>
+  {% if msg %}<p style="color:#060;">{{ msg }}</p>{% endif %}
+
+  <h2>业务参数</h2>
+  <form method="post" action="/crm/admin/config">
+    <table>
+      <tbody>
+      {% for key, value in config.items() %}
+        <tr><td>{{ key }}</td><td><input name="{{ key }}" value="{{ value }}"></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <p>说明：claim_expire_days 未联系回收天数 · holding_cap 持有上限 · soft_cooldown_days 软拒绝冷却 ·
+    no_answer_max 未接通释放次数 · hesitant_recycle_days 犹豫逾期回收 · window_d30/d90 到期窗口 ·
+    expired_lookback_days 已过期回溯 · customer_priority_days 老客户优先期</p>
+    <p><button type="submit">保存配置</button></p>
+  </form>
+
+  <h2>定时任务（也可命令行/cron 跑 web/leads_jobs.py）</h2>
+  <form method="post" action="/crm/admin/jobs" style="display:inline;">
+    <input type="hidden" name="job" value="generate"><button type="submit">生成/刷新线索</button>
+  </form>
+  <form method="post" action="/crm/admin/jobs" style="display:inline;">
+    <input type="hidden" name="job" value="recycle"><button type="submit">执行回收</button>
+  </form>
+  <p>企查查电话拉取走命令行：<code>QICHACHA_KEY=... QICHACHA_SECRET=... python web/leads_jobs.py fetch-phones --limit 200</code></p>
+
+  <h2>成员账号</h2>
+  <table>
+    <thead><tr><th>用户名</th><th>显示名</th><th>角色</th><th>启用</th></tr></thead>
+    <tbody>
+    {% for u in users %}<tr><td>{{ u.username }}</td><td>{{ u.display_name }}</td><td>{{ u.role }}</td><td>{{ u.active }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+  <form method="post" action="/crm/admin/users">
+    <input name="username" placeholder="用户名" required>
+    <input name="display_name" placeholder="显示名">
+    <input name="password" type="password" placeholder="初始密码（≥6位）" required>
+    <select name="role">
+      <option value="member">成员</option>
+      <option value="leader">组长</option>
+      <option value="admin">管理员</option>
+    </select>
+    <button type="submit">新建用户</button>
+  </form>
+</main>
+</body>
+</html>

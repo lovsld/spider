@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>今日待办 · 线索系统</title>
+<link rel="stylesheet" href="/static/site.css">
+</head>
+<body>
+<header style="display:flex;gap:16px;align-items:center;">
+  <strong>线索系统</strong>
+  <nav style="display:flex;gap:12px;">
+    <a href="/crm/today">今日待办</a>
+    <a href="/crm/pool">公海接单</a>
+    <a href="/crm/mine">我的线索</a>
+    {% if user.role in ('leader', 'admin') %}<a href="/crm/team">团队</a>{% endif %}
+    {% if user.role == 'admin' %}<a href="/crm/admin">后台</a>{% endif %}
+    <a href="/crm/logout">退出（{{ user.display_name }}）</a>
+  </nav>
+</header>
+<main>
+  <h1>今日待办</h1>
+
+  {% macro lead_table(title, rows, danger=False) %}
+  <h2 {% if danger %}style="color:#b00;"{% endif %}>{{ title }}（{{ rows|length }}）</h2>
+  {% if rows %}
+  <table>
+    <thead><tr><th>企业</th><th>资质</th><th>到期</th><th>紧迫</th><th>下次跟进</th><th></th></tr></thead>
+    <tbody>
+    {% for l in rows %}
+      <tr>
+        <td>{{ l.company_name }}</td>
+        <td>{{ l.qualification_name }}</td>
+        <td>{{ l.expires_on }}</td>
+        <td>{{ urgency_labels.get(l.urgency, l.urgency) }}</td>
+        <td>{{ l.next_follow_at or '' }}</td>
+        <td><a href="/crm/company/{{ l.credit_code }}">去拨打</a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p>无</p>{% endif %}
+  {% endmacro %}
+
+  {{ lead_table('已逾期（先处理）', overdue, True) }}
+  {{ lead_table('今日待回访 / 待重拨', due) }}
+  {{ lead_table('新接未联系', fresh) }}
+  {{ lead_table('其他持有中', rest) }}
+</main>
+</body>
+</html>
