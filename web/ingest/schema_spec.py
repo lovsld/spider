@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 SCHEMA_SQL = Path(__file__).resolve().parent / "schema.sql"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 # Map information_schema type names back to the DDL spellings we compare.
 _TYPE_ALIASES = {

@@ -13,6 +13,8 @@ def test_expected_spec_covers_all_tables():
         "crawl_snapshot", "company", "qualification", "registered_person",
         "project", "performance", "misconduct", "blacklist", "punishment",
         "change_log", "schema_meta",
+        "app_user", "app_session", "lead", "contact_record",
+        "company_phone", "do_not_call", "system_config",
     }
     assert expected["tables"]["company"]["credit_code"] == "varchar(32)"
     assert expected["tables"]["company"]["is_current"] == "boolean"

@@ -196,3 +196,87 @@ CREATE TABLE IF NOT EXISTS schema_meta (
     version       int NOT NULL,
     applied_at    timestamptz NOT NULL DEFAULT now()
 );
+
+-- === Leads / CRM (retrieval system) =====================================
+
+CREATE TABLE IF NOT EXISTS app_user (
+    id            bigserial PRIMARY KEY,
+    username      varchar(64) NOT NULL UNIQUE,
+    password_hash text NOT NULL,
+    display_name  text,
+    role          varchar(16) NOT NULL DEFAULT 'member',
+    active        boolean NOT NULL DEFAULT true,
+    created_at    timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS app_session (
+    token      varchar(64) PRIMARY KEY,
+    user_id    bigint NOT NULL,
+    expires_at timestamptz NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS lead (
+    id                 bigserial PRIMARY KEY,
+    credit_code        varchar(32) NOT NULL,
+    business_key       text NOT NULL,
+    qualification_name text,
+    category           text,
+    cert_no            text,
+    expires_on         date,
+    urgency            varchar(16) NOT NULL,
+    status             varchar(16) NOT NULL DEFAULT 'pool',
+    close_reason       text,
+    owner_id           bigint,
+    claimed_at         timestamptz,
+    last_contact_at    timestamptz,
+    next_follow_at     timestamptz,
+    cooldown_until     timestamptz,
+    no_answer_count    int NOT NULL DEFAULT 0,
+    prior_owner_id     bigint,
+    created_at         timestamptz NOT NULL DEFAULT now(),
+    updated_at         timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS lead_one_active
+    ON lead (credit_code, business_key) WHERE status IN ('pool', 'claimed', 'following');
+
+CREATE TABLE IF NOT EXISTS contact_record (
+    id             bigserial PRIMARY KEY,
+    lead_id        bigint NOT NULL,
+    credit_code    varchar(32) NOT NULL,
+    user_id        bigint NOT NULL,
+    outcome        varchar(24) NOT NULL,
+    note           text,
+    product        text,
+    amount         numeric,
+    next_follow_at timestamptz,
+    phone_used     text,
+    created_at     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS company_phone (
+    id         bigserial PRIMARY KEY,
+    credit_code varchar(32) NOT NULL,
+    phone      varchar(32) NOT NULL,
+    kind       varchar(16),
+    source     varchar(24) NOT NULL,
+    validity   varchar(16) NOT NULL DEFAULT 'unknown',
+    marked_by  bigint,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (credit_code, phone)
+);
+
+CREATE TABLE IF NOT EXISTS do_not_call (
+    credit_code varchar(32) PRIMARY KEY,
+    reason      text,
+    created_by  bigint,
+    created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS system_config (
+    key        varchar(64) PRIMARY KEY,
+    value      text NOT NULL,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
